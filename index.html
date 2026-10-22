@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>低壓線路電壓降與線路損失率計算工具</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        slate: { 850: '#151e2e', 950: '#070d19' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-4 sm:p-6 lg:p-8 font-sans antialiased">
+    <div class="max-w-6xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-800 pb-5 gap-3">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2">
+                    <span class="p-2 bg-blue-600 rounded-lg inline-flex text-white shadow-lg shadow-blue-500/20">⚡</span>
+                    低壓配電電壓降與線路損失計算
+                </h1>
+                <p class="text-sm text-slate-400 mt-1">
+                    CNS 2655 原始阻抗參與運算 ｜ 電壓降 PF=1.0 (20°C) ｜ 線路損失 PF=0.99 (90°C) ｜ 容許壓降固定 3%
+                </p>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                    ● 算術結果精確至小數點第三位（第四位四捨五入）
+                </span>
+            </div>
+        </header>
+
+        <!-- Main Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Column: Inputs Form -->
+            <div class="lg:col-span-5 space-y-5">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-5">
+                    <h2 class="text-base font-semibold text-slate-200 border-b border-slate-800 pb-2 flex items-center justify-between">
+                        <span>參數設定</span>
+                        <button type="button" id="btnReset" class="text-xs text-slate-400 hover:text-blue-400 transition-colors">
+                            清空欄位
+                        </button>
+                    </h2>
+
+                    <!-- 1. 供電系統 -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                            1. 供電系統類別
+                        </label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button type="button" data-sys="1p3w" class="sys-btn py-2.5 px-3 rounded-xl border text-sm font-semibold transition-all border-blue-500 bg-blue-600/20 text-blue-400">
+                                1φ3w
+                            </button>
+                            <button type="button" data-sys="3p3w" class="sys-btn py-2.5 px-3 rounded-xl border text-sm font-semibold transition-all border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600">
+                                3φ3w
+                            </button>
+                            <button type="button" data-sys="3p4w" class="sys-btn py-2.5 px-3 rounded-xl border text-sm font-semibold transition-all border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600">
+                                3φ4w
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 2. 負載 (VA) -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                                2. 負載 (VA)
+                            </label>
+                            <span id="vaCalcHint" class="text-[11px] text-blue-400 font-mono">I = VA / V</span>
+                        </div>
+                        <div class="relative">
+                            <input type="number" id="inputVA" placeholder="請輸入負載容量" step="any" min="0" 
+                                class="w-full bg-slate-850 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 font-mono text-sm focus:outline-none focus:border-blue-500 transition-colors placeholder:text-slate-600">
+                            <span class="absolute right-4 top-2.5 text-xs text-slate-400 font-mono">VA</span>
+                        </div>
+                    </div>
+
+                    <!-- 3. 線路電壓 (V) -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                                3. 線路電壓 (V)
+                            </label>
+                            <span id="voltageModeBadge" class="text-[11px] px-2 py-0.5 rounded font-mono font-medium bg-slate-800 text-slate-400 border border-slate-700">
+                                待輸入電壓
+                            </span>
+                        </div>
+                        <div class="relative">
+                            <input type="number" id="inputVoltage" placeholder="例如: 110, 220, 380" step="any" min="1" 
+                                class="w-full bg-slate-850 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 font-mono text-sm focus:outline-none focus:border-blue-500 transition-colors placeholder:text-slate-600">
+                            <span class="absolute right-4 top-2.5 text-xs text-slate-400 font-mono">V</span>
+                        </div>
+                    </div>
+
+                    <!-- 4. 電流 (A) -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                                4. 電流 (A)
+                            </label>
+                            <span class="text-[11px] text-slate-500">與負載(VA)雙向自動換算</span>
+                        </div>
+                        <div class="relative">
+                            <input type="number" id="inputCurrent" placeholder="請輸入或自動由上方推算" step="any" min="0" 
+                                class="w-full bg-slate-850 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 font-mono text-sm focus:outline-none focus:border-blue-500 transition-colors placeholder:text-slate-600">
+                            <span class="absolute right-4 top-2.5 text-xs text-slate-400 font-mono">A</span>
+                        </div>
+                    </div>
+
+                    <!-- 5. 單程長度 (m) -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                            5. 線路單程長度 (m)
+                        </label>
+                        <div class="relative">
+                            <input type="number" id="inputLength" placeholder="請輸入配線距離 (公尺)" step="any" min="0" 
+                                class="w-full bg-slate-850 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 font-mono text-sm focus:outline-none focus:border-blue-500 transition-colors placeholder:text-slate-600">
+                            <span class="absolute right-4 top-2.5 text-xs text-slate-400 font-mono">m</span>
+                        </div>
+                    </div>
+
+                    <!-- 6. 導線規格 (mm²) -->
+                    <div>
+                        <div class="mb-1.5">
+                            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                                6. 導線規格 (mm²)
+                            </label>
+                            <div class="text-[11px] text-sky-400/90 mt-1 space-y-0.5">
+                                <div>依「用戶用電設備裝置規則」第九百九十三條，線徑不得小於 14mm²</div>
+                                <div class="text-[10px] text-slate-400 font-mono">(民國 114 年 05 月 09 日修正)</div>
+                            </div>
+                        </div>
+                        <select id="selectWireSize" 
+                            class="w-full bg-slate-850 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 font-mono text-sm focus:outline-none focus:border-blue-500 transition-colors">
+                            <option value="2">2 mm²</option>
+                            <option value="3.5">3.5 mm²</option>
+                            <option value="5.5">5.5 mm²</option>
+                            <option value="8">8 mm²</option>
+                            <option value="14" selected>14 mm²</option>
+                            <option value="22">22 mm²</option>
+                            <option value="30">30 mm²</option>
+                            <option value="38">38 mm²</option>
+                            <option value="50">50 mm²</option>
+                            <option value="60">60 mm²</option>
+                            <option value="80">80 mm²</option>
+                            <option value="100">100 mm²</option>
+                        </select>
+                        
+                        <!-- 對齊後的三欄對稱網格 -->
+                        <div class="mt-2 p-2.5 bg-slate-850 border border-slate-800 rounded-xl">
+                            <div class="grid grid-cols-3 text-center divide-x divide-slate-800 font-mono">
+                                <div class="px-1">
+                                    <div class="text-[11px] text-slate-400 mb-0.5">r(20°C) 壓降</div>
+                                    <div id="paramR20" class="text-xs sm:text-[13px] font-bold text-sky-400">1.3 Ω/km</div>
+                                </div>
+                                <div class="px-1">
+                                    <div class="text-[11px] text-slate-400 mb-0.5">r(90°C) 線損</div>
+                                    <div id="paramR90" class="text-xs sm:text-[13px] font-bold text-amber-400">1.6575 Ω/km</div>
+                                </div>
+                                <div class="px-1">
+                                    <div class="text-[11px] text-slate-400 mb-0.5">電抗 x</div>
+                                    <div id="paramX" class="text-xs sm:text-[13px] font-bold text-emerald-400">0.1208 Ω/km</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 7. 容許壓降率上限 (%) -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                7. 容許壓降率上限 (%)
+                            </label>
+                            <span class="text-[11px] text-emerald-400">法規標準值</span>
+                        </div>
+                        <input type="text" value="3.000 % (固定)" disabled 
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-slate-400 font-mono text-sm cursor-not-allowed">
+                    </div>
+
+                    <!-- 8. 功率因數 (鎖定) -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                8. 功率因數 (cos θ)
+                            </label>
+                            <span class="text-[11px] text-slate-500">雙基準鎖定</span>
+                        </div>
+                        <input type="text" value="壓降 PF=1.000 ｜ 線損 PF=0.990" disabled 
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-slate-400 font-mono text-sm cursor-not-allowed">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Smart Recommendation -->
+            <div class="lg:col-span-7 space-y-5">
+                
+                <!-- 4 Core Metric Cards -->
+                <div class="grid grid-cols-2 gap-4">
+                    
+                    <!-- 1. 電壓降 (V) -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 relative overflow-hidden shadow-lg">
+                        <div class="flex items-center justify-between text-xs text-slate-400">
+                            <span>電壓降 (ΔV)</span>
+                            <span class="px-1.5 py-0.5 rounded text-[10px] bg-sky-500/10 text-sky-400 border border-sky-500/20 font-mono">20°C, PF=1.0</span>
+                        </div>
+                        <div class="mt-2 text-2xl sm:text-3xl font-extrabold font-mono text-white tracking-tight" id="valDeltaV">
+                            — <span class="text-sm font-normal text-slate-500">V</span>
+                        </div>
+                        <div class="mt-1 text-xs text-slate-500 font-mono" id="resDeltaVFormula">
+                            待填寫參數
+                        </div>
+                    </div>
+
+                    <!-- 2. 電壓降率 (%) -->
+                    <div id="cardDropRate" class="bg-slate-900 border border-slate-800 rounded-2xl p-5 relative overflow-hidden shadow-lg transition-colors">
+                        <div class="flex items-center justify-between text-xs text-slate-400">
+                            <span>電壓降率</span>
+                            <span id="badgeDropStatus" class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-500 border border-slate-700">
+                                待計算
+                            </span>
+                        </div>
+                        <div class="mt-2 text-2xl sm:text-3xl font-extrabold font-mono text-white tracking-tight" id="valDropRate">
+                            — <span class="text-sm font-normal text-slate-500">%</span>
+                        </div>
+                        <div class="mt-1 text-xs text-slate-500 font-mono">
+                            容許上限 ≤ 3.000 %
+                        </div>
+                    </div>
+
+                    <!-- 3. 線路功率損失 (W) -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 relative overflow-hidden shadow-lg">
+                        <div class="flex items-center justify-between text-xs text-slate-400">
+                            <span>線路功率損失 (銅損)</span>
+                            <span class="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono">90°C, PF=0.99</span>
+                        </div>
+                        <div class="mt-2 text-2xl sm:text-3xl font-extrabold font-mono text-amber-400 tracking-tight" id="valLossWatts">
+                            — <span class="text-sm font-normal text-slate-500">W</span>
+                        </div>
+                        <div class="mt-1 text-xs text-slate-500 font-mono" id="valLossFormula">
+                            待填寫參數
+                        </div>
+                    </div>
+
+                    <!-- 4. 線路損失率 (%) -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 relative overflow-hidden shadow-lg">
+                        <div class="flex items-center justify-between text-xs text-slate-400">
+                            <span>線路損失率</span>
+                            <span class="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 font-mono">銅損比</span>
+                        </div>
+                        <div class="mt-2 text-2xl sm:text-3xl font-extrabold font-mono text-white tracking-tight" id="valLossRate">
+                            — <span class="text-sm font-normal text-slate-500">%</span>
+                        </div>
+                        <div class="mt-1 text-xs text-slate-500 font-mono" id="valTotalPowerHint">
+                            負載總功率: — kW
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Smart Recommendation Panel -->
+                <div id="panelRecommendation" class="rounded-2xl border border-slate-800 bg-slate-900/50 p-5 shadow-xl transition-all">
+                    <div class="text-xs text-slate-500 text-center py-2 font-mono">
+                        請於左側輸入「電壓、長度與負載 (或電流)」，系統將立即進行核算與合規判斷
+                    </div>
+                </div>
+
+                <!-- Collapsible Cable Spec Reference Table -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
+                    <button type="button" id="btnToggleTable" class="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-slate-850/50 transition-colors">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-semibold text-slate-200">CNS 2655 導線阻抗參數對照表 (2.0 ~ 100 mm²)</span>
+                            <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400">原表數據</span>
+                        </div>
+                        <span id="iconTableChevron" class="text-slate-400 text-sm transition-transform duration-200">▼</span>
+                    </button>
+                    
+                    <div id="containerTable" class="border-t border-slate-800 overflow-x-auto">
+                        <table class="w-full text-left text-xs font-mono">
+                            <thead class="bg-slate-950 text-slate-400 uppercase text-[11px]">
+                                <tr>
+                                    <th class="py-2.5 px-4">公稱截面積 (mm²)</th>
+                                    <th class="py-2.5 px-4 text-sky-400">20°C 最大直流電阻 (Ω/km)</th>
+                                    <th class="py-2.5 px-4 text-amber-400">90°C 導體電阻 R (Ω/km)</th>
+                                    <th class="py-2.5 px-4 text-emerald-400">電抗 XL (Ω/km)</th>
+                                    <th class="py-2.5 px-4 text-slate-400">約計完成外徑 (mm)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBodySpec" class="divide-y divide-slate-800 text-slate-300">
+                                <!-- Generated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Logic -->
+    <script>
+        const WIRE_SPECS = {
+            2:   { r20: 9.24,  r90: 11.8457, x: 0.1385, od: 4.4 },
+            3.5: { r20: 5.20,  r90: 6.6664,  x: 0.1279, od: 5.0 },
+            5.5: { r20: 3.33,  r90: 4.2691,  x: 0.1195, od: 5.6 },
+            8:   { r20: 2.31,  r90: 2.9453,  x: 0.1212, od: 6.6 },
+            14:  { r20: 1.30,  r90: 1.6575,  x: 0.1208, od: 8.6 },
+            22:  { r20: 0.824, r90: 1.0506,  x: 0.1131, od: 9.8 },
+            30:  { r20: 0.623, r90: 0.7943,  x: 0.1119, od: 11.0 },
+            38:  { r20: 0.487, r90: 0.6209,  x: 0.1084, od: 12.5 },
+            50:  { r20: 0.378, r90: 0.4820,  x: 0.1083, od: 14.0 },
+            60:  { r20: 0.303, r90: 0.3863,  x: 0.1051, od: 15.0 },
+            80:  { r20: 0.229, r90: 0.2920,  x: 0.1017, od: 16.0 },
+            100: { r20: 0.180, r90: 0.2297,  x: 0.0987, od: 18.5 }
+        };
+
+        const PF_VOLTAGE_DROP = 1.0;
+        const PF_LINE_LOSS = 0.99;
+        const MAX_DROP_LIMIT = 3.0;
+
+        function round3(val) {
+            if (val === null || val === undefined || isNaN(val) || !isFinite(val)) return '0.000';
+            return (Math.round(Number(val + 'e+3')) / 1000).toFixed(3);
+        }
+
+        let currentSystem = '1p3w';
+
+        const inputVA = document.getElementById('inputVA');
+        const inputVoltage = document.getElementById('inputVoltage');
+        const inputCurrent = document.getElementById('inputCurrent');
+        const inputLength = document.getElementById('inputLength');
+        const selectWireSize = document.getElementById('selectWireSize');
+        const vaCalcHint = document.getElementById('vaCalcHint');
+        const voltageModeBadge = document.getElementById('voltageModeBadge');
+        const paramR20 = document.getElementById('paramR20');
+        const paramR90 = document.getElementById('paramR90');
+        const paramX = document.getElementById('paramX');
+        const btnReset = document.getElementById('btnReset');
+
+        const valDeltaV = document.getElementById('valDeltaV');
+        const resDeltaVFormula = document.getElementById('resDeltaVFormula');
+        const cardDropRate = document.getElementById('cardDropRate');
+        const valDropRate = document.getElementById('valDropRate');
+        const badgeDropStatus = document.getElementById('badgeDropStatus');
+        const valLossWatts = document.getElementById('valLossWatts');
+        const valLossFormula = document.getElementById('valLossFormula');
+        const valLossRate = document.getElementById('valLossRate');
+        const valTotalPowerHint = document.getElementById('valTotalPowerHint');
+        const panelRecommendation = document.getElementById('panelRecommendation');
+        const tableBodySpec = document.getElementById('tableBodySpec');
+
+        function calculateCore(wireSizeKey, sys, V, I, L) {
+            const spec = WIRE_SPECS[wireSizeKey];
+            if (!spec) return null;
+
+            const r20 = spec.r20;
+            const r90 = spec.r90;
+            const L_km = L / 1000.0;
+            const zEff = r20;
+
+            let kDrop = 2.0;
+            let pLoss = 0.0;
+            let totalPower = 0.0;
+            let is1p3wPhase = false;
+
+            if (sys === '1p3w') {
+                if (V <= 150) {
+                    kDrop = 1.0;
+                    pLoss = 1.0 * Math.pow(I, 2) * (r90 * L_km);
+                    totalPower = V * I * PF_LINE_LOSS;
+                    is1p3wPhase = true;
+                } else {
+                    kDrop = 2.0;
+                    pLoss = 2.0 * Math.pow(I, 2) * (r90 * L_km);
+                    totalPower = V * I * PF_LINE_LOSS;
+                }
+            } else if (sys === '3p3w' || sys === '3p4w') {
+                kDrop = Math.sqrt(3);
+                pLoss = 3.0 * Math.pow(I, 2) * (r90 * L_km);
+                totalPower = Math.sqrt(3) * V * I * PF_LINE_LOSS;
+            }
+
+            const deltaV = kDrop * I * L_km * zEff;
+            const dropRate = V > 0 ? (deltaV / V) * 100.0 : 0.0;
+            const lossRate = totalPower > 0 ? (pLoss / totalPower) * 100.0 : 0.0;
+
+            return {
+                wireSize: wireSizeKey,
+                kDrop,
+                zEff,
+                deltaV,
+                dropRate,
+                pLoss,
+                totalPower,
+                lossRate,
+                is1p3wPhase,
+                r20,
+                r90,
+                x: spec.x
+            };
+        }
+
+        function updateAll(source) {
+            const rawV = inputVoltage.value.trim();
+            const rawI = inputCurrent.value.trim();
+            const rawVA = inputVA.value.trim();
+            const rawL = inputLength.value.trim();
+
+            const V = parseFloat(rawV) || 0;
+            let I = parseFloat(rawI) || 0;
+            let VA = parseFloat(rawVA) || 0;
+            const L = parseFloat(rawL) || 0;
+            const wireSizeKey = parseFloat(selectWireSize.value);
+
+            const isThreePhase = (currentSystem === '3p3w' || currentSystem === '3p4w');
+            
+            if (isThreePhase) {
+                vaCalcHint.textContent = 'I = VA / (√3 × V)';
+            } else {
+                vaCalcHint.textContent = 'I = VA / V';
+            }
+
+            if (source === 'va' || source === 'voltage' || source === 'system') {
+                if (V > 0 && rawVA !== '') {
+                    I = isThreePhase ? (VA / (Math.sqrt(3) * V)) : (VA / V);
+                    inputCurrent.value = round3(I);
+                } else if (rawVA === '' && source === 'voltage' && rawI !== '') {
+                    VA = isThreePhase ? (Math.sqrt(3) * V * I) : (V * I);
+                    inputVA.value = round3(VA);
+                }
+            } else if (source === 'current') {
+                if (V > 0 && rawI !== '') {
+                    VA = isThreePhase ? (Math.sqrt(3) * V * I) : (V * I);
+                    inputVA.value = round3(VA);
+                }
+            }
+
+            if (currentSystem === '1p3w') {
+                if (V > 0) {
+                    if (V <= 150) {
+                        voltageModeBadge.textContent = '1φ3w 相負載 (K=1.0)';
+                        voltageModeBadge.className = 'text-[11px] px-2 py-0.5 rounded font-mono font-medium bg-blue-500/10 text-blue-400 border border-blue-500/30';
+                    } else {
+                        voltageModeBadge.textContent = '1φ3w 線間 (K=2.0)';
+                        voltageModeBadge.className = 'text-[11px] px-2 py-0.5 rounded font-mono font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30';
+                    }
+                } else {
+                    voltageModeBadge.textContent = '1φ3w 待輸入電壓';
+                    voltageModeBadge.className = 'text-[11px] px-2 py-0.5 rounded font-mono font-medium bg-slate-800 text-slate-400 border border-slate-700';
+                }
+            } else if (currentSystem === '3p3w') {
+                voltageModeBadge.textContent = '3φ3w 線間 (K=√3)';
+                voltageModeBadge.className = 'text-[11px] px-2 py-0.5 rounded font-mono font-medium bg-purple-500/10 text-purple-400 border border-purple-500/30';
+            } else if (currentSystem === '3p4w') {
+                voltageModeBadge.textContent = '3φ4w 線間 (K=√3)';
+                voltageModeBadge.className = 'text-[11px] px-2 py-0.5 rounded font-mono font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/30';
+            }
+
+            const spec = WIRE_SPECS[wireSizeKey];
+            if (spec) {
+                paramR20.textContent = `${spec.r20} Ω/km`;
+                paramR90.textContent = `${spec.r90} Ω/km`;
+                paramX.textContent = `${spec.x} Ω/km`;
+            }
+
+            const hasCompleteInputs = (V > 0 && I > 0 && L > 0);
+            if (!hasCompleteInputs) {
+                valDeltaV.innerHTML = `— <span class="text-sm font-normal text-slate-500">V</span>`;
+                resDeltaVFormula.textContent = '請輸入電壓、長度與負載';
+
+                valDropRate.innerHTML = `— <span class="text-sm font-normal text-slate-500">%</span>`;
+                cardDropRate.className = 'bg-slate-900 border border-slate-800 rounded-2xl p-5 relative overflow-hidden shadow-lg';
+                badgeDropStatus.textContent = '待計算';
+                badgeDropStatus.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-500 border border-slate-700';
+
+                valLossWatts.innerHTML = `— <span class="text-sm font-normal text-slate-500">W</span>`;
+                valLossFormula.textContent = '待填寫參數';
+
+                valLossRate.innerHTML = `— <span class="text-sm font-normal text-slate-500">%</span>`;
+                valTotalPowerHint.textContent = '負載總功率: — kW';
+
+                panelRecommendation.className = 'rounded-2xl border border-slate-800 bg-slate-900/50 p-5 shadow-xl transition-all';
+                panelRecommendation.innerHTML = `
+                    <div class="text-xs text-slate-500 text-center py-2 font-mono">
+                        請於左側輸入「電壓、長度與負載 (或電流)」，系統將立即進行核算與合規判斷
+                    </div>
+                `;
+                return;
+            }
+
+            const res = calculateCore(wireSizeKey, currentSystem, V, I, L);
+            if (!res) return;
+
+            valDeltaV.innerHTML = `${round3(res.deltaV)} <span class="text-sm font-normal text-slate-400">V</span>`;
+            const kStr = res.kDrop === Math.sqrt(3) ? '√3' : res.kDrop.toFixed(1);
+            resDeltaVFormula.textContent = `K=${kStr} ｜ PF=1.0 ｜ Z_eff=r(20°C)=${res.zEff} Ω/km`;
+
+            valDropRate.innerHTML = `${round3(res.dropRate)} <span class="text-sm font-normal text-slate-400">%</span>`;
+
+            valLossWatts.innerHTML = `${round3(res.pLoss)} <span class="text-sm font-normal text-slate-400">W</span>`;
+            if (currentSystem === '1p3w' && res.is1p3wPhase) {
+                valLossFormula.textContent = 'P_loss = 1 × I² × R (90°C, 相負載)';
+            } else if (isThreePhase) {
+                valLossFormula.textContent = 'P_loss = 3 × I² × R (90°C, 三相)';
+            } else {
+                valLossFormula.textContent = 'P_loss = 2 × I² × R (90°C, 兩載流線)';
+            }
+
+            valLossRate.innerHTML = `${round3(res.lossRate)} <span class="text-sm font-normal text-slate-400">%</span>`;
+            valTotalPowerHint.textContent = `總功率 (PF=0.99): ${round3(res.totalPower / 1000)} kW`;
+
+            const isQualified = res.dropRate <= MAX_DROP_LIMIT;
+            if (isQualified) {
+                cardDropRate.className = 'bg-slate-900 border border-emerald-500/40 rounded-2xl p-5 relative overflow-hidden shadow-lg';
+                badgeDropStatus.textContent = '合格';
+                badgeDropStatus.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+            } else {
+                cardDropRate.className = 'bg-slate-900 border border-rose-500/50 rounded-2xl p-5 relative overflow-hidden shadow-lg shadow-rose-950/20';
+                badgeDropStatus.textContent = '超標不合格';
+                badgeDropStatus.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30';
+            }
+
+            renderRecommendation(isQualified, wireSizeKey, res, V, I, L);
+        }
+
+        function renderRecommendation(isQualified, currentWireSize, currentRes, V, I, L) {
+            if (isQualified) {
+                panelRecommendation.className = 'rounded-2xl border border-emerald-500/30 bg-emerald-950/10 p-5 shadow-xl';
+                panelRecommendation.innerHTML = `
+                    <div class="flex items-start gap-3">
+                        <div class="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 font-bold">✓</div>
+                        <div>
+                            <h3 class="text-sm font-semibold text-emerald-300">目前導線規格符合壓降法規</h3>
+                            <p class="text-xs text-slate-400 mt-1">
+                                目前所選之 <strong class="text-slate-200">${currentWireSize} mm²</strong> 電壓降率為 
+                                <strong class="text-emerald-400">${round3(currentRes.dropRate)}%</strong>，低於容許上限 ${round3(MAX_DROP_LIMIT)}%。運轉線路損失為 ${round3(currentRes.pLoss)} W。
+                            </p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                const sortedSizes = Object.keys(WIRE_SPECS).map(Number).sort((a, b) => a - b);
+                let recommendedRes = null;
+
+                for (let size of sortedSizes) {
+                    const testRes = calculateCore(size, currentSystem, V, I, L);
+                    if (testRes && testRes.dropRate <= MAX_DROP_LIMIT) {
+                        recommendedRes = testRes;
+                        break;
+                    }
+                }
+
+                panelRecommendation.className = 'rounded-2xl border border-rose-500/40 bg-rose-950/20 p-5 shadow-xl space-y-4';
+
+                if (recommendedRes) {
+                    const savedWatts = Math.max(0, currentRes.pLoss - recommendedRes.pLoss);
+                    panelRecommendation.innerHTML = `
+                        <div class="flex items-start justify-between flex-wrap gap-2">
+                            <div class="flex items-center gap-2">
+                                <span class="p-1.5 rounded-lg bg-rose-500/20 text-rose-400 font-bold text-sm">!</span>
+                                <h3 class="text-sm font-semibold text-rose-200">壓降超標警告 ｜ 系統建議升級規格</h3>
+                            </div>
+                            <button type="button" id="btnApplyRecommend" data-size="${recommendedRes.wireSize}" 
+                                class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-600/30 transition-colors">
+                                直接套用 ${recommendedRes.wireSize} mm²
+                            </button>
+                        </div>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            現有 <span class="text-rose-400 font-mono font-bold">${currentWireSize} mm²</span> 壓降率為 
+                            <span class="text-rose-400 font-mono font-bold">${round3(currentRes.dropRate)}%</span>（超標）。<br>
+                            建議升級至 <span class="text-emerald-400 font-mono font-bold">${recommendedRes.wireSize} mm²</span>，
+                            可使壓降降至 <span class="text-emerald-400 font-mono font-bold">${round3(recommendedRes.dropRate)}%</span> 符合 3% 規範。
+                        </p>
+                        <div class="grid grid-cols-3 gap-2 pt-2 border-t border-rose-900/40 text-center">
+                            <div class="bg-slate-900/60 p-2.5 rounded-xl">
+                                <div class="text-[10px] text-slate-400">改善後壓降</div>
+                                <div class="text-xs sm:text-sm font-bold font-mono text-emerald-400">${round3(recommendedRes.dropRate)} %</div>
+                            </div>
+                            <div class="bg-slate-900/60 p-2.5 rounded-xl">
+                                <div class="text-[10px] text-slate-400">改善後線損</div>
+                                <div class="text-xs sm:text-sm font-bold font-mono text-amber-400">${round3(recommendedRes.pLoss)} W</div>
+                            </div>
+                            <div class="bg-slate-900/60 p-2.5 rounded-xl">
+                                <div class="text-[10px] text-slate-400">線損功率節省</div>
+                                <div class="text-xs sm:text-sm font-bold font-mono text-blue-400">-${round3(savedWatts)} W</div>
+                            </div>
+                        </div>
+                    `;
+
+                    const btnApply = document.getElementById('btnApplyRecommend');
+                    if (btnApply) {
+                        btnApply.addEventListener('click', function() {
+                            selectWireSize.value = this.getAttribute('data-size');
+                            updateAll('wire');
+                        });
+                    }
+                } else {
+                    panelRecommendation.innerHTML = `
+                        <div class="flex items-start gap-2">
+                            <span class="p-1.5 rounded-lg bg-rose-500/20 text-rose-400 font-bold text-sm">✕</span>
+                            <div>
+                                <h3 class="text-sm font-semibold text-rose-200">超出對照表最大線徑規格 (> 100 mm²)</h3>
+                                <p class="text-xs text-slate-400 mt-1">
+                                    即使用最大之 100 mm² 導線壓降仍超過 3.000%。建議考慮縮短線路長度、提高供電配電電壓，或採用雙並聯導線。
+                                </p>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        function renderReferenceTable() {
+            if (!tableBodySpec) return;
+            let rowsHtml = '';
+            for (let [size, data] of Object.entries(WIRE_SPECS)) {
+                rowsHtml += `
+                    <tr class="hover:bg-slate-850/40 transition-colors">
+                        <td class="py-2.5 px-4 font-bold text-white">${size} mm²</td>
+                        <td class="py-2.5 px-4 text-sky-400 font-mono">${data.r20}</td>
+                        <td class="py-2.5 px-4 text-amber-400 font-mono">${data.r90}</td>
+                        <td class="py-2.5 px-4 text-emerald-400 font-mono">${data.x}</td>
+                        <td class="py-2.5 px-4 text-slate-400 font-mono">${data.od}</td>
+                    </tr>
+                `;
+            }
+            tableBodySpec.innerHTML = rowsHtml;
+        }
+
+        function initEvents() {
+            const sysBtns = document.querySelectorAll('.sys-btn');
+            sysBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    sysBtns.forEach(b => {
+                        b.className = 'sys-btn py-2.5 px-3 rounded-xl border text-sm font-semibold transition-all border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600';
+                    });
+                    this.className = 'sys-btn py-2.5 px-3 rounded-xl border text-sm font-semibold transition-all border-blue-500 bg-blue-600/20 text-blue-400';
+                    currentSystem = this.getAttribute('data-sys');
+                    updateAll('system');
+                });
+            });
+
+            inputVA.addEventListener('input', () => updateAll('va'));
+            inputVoltage.addEventListener('input', () => updateAll('voltage'));
+            inputCurrent.addEventListener('input', () => updateAll('current'));
+            inputLength.addEventListener('input', () => updateAll('length'));
+            selectWireSize.addEventListener('change', () => updateAll('wire'));
+
+            if (btnReset) {
+                btnReset.addEventListener('click', () => {
+                    inputVA.value = '';
+                    inputVoltage.value = '';
+                    inputCurrent.value = '';
+                    inputLength.value = '';
+                    selectWireSize.value = '14';
+
+                    sysBtns.forEach(b => {
+                        if (b.getAttribute('data-sys') === '1p3w') {
+                            b.className = 'sys-btn py-2.5 px-3 rounded-xl border text-sm font-semibold transition-all border-blue-500 bg-blue-600/20 text-blue-400';
+                        } else {
+                            b.className = 'sys-btn py-2.5 px-3 rounded-xl border text-sm font-semibold transition-all border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600';
+                        }
+                    });
+                    currentSystem = '1p3w';
+                    updateAll('reset');
+                });
+            }
+
+            const btnToggleTable = document.getElementById('btnToggleTable');
+            const containerTable = document.getElementById('containerTable');
+            const iconTableChevron = document.getElementById('iconTableChevron');
+
+            if (btnToggleTable && containerTable && iconTableChevron) {
+                btnToggleTable.addEventListener('click', () => {
+                    const isHidden = containerTable.classList.contains('hidden');
+                    if (isHidden) {
+                        containerTable.classList.remove('hidden');
+                        iconTableChevron.textContent = '▲';
+                    } else {
+                        containerTable.classList.add('hidden');
+                        iconTableChevron.textContent = '▼';
+                    }
+                });
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            renderReferenceTable();
+            initEvents();
+            updateAll('init');
+        });
+    </script>
+</body>
+</html>
