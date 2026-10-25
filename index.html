@@ -52,12 +52,12 @@
                     低壓配電電壓降、線損與安全載流計算
                 </h1>
                 <p class="text-sm text-dracula-comment mt-1">
-                    CNS 2655 原始阻抗 ｜ 壓降 (20°C, PF=1.0) ｜ 線損 (90°C, PF=0.99) ｜ 600V XLPE 安全載流 (含 1.25 倍安全係數)
+                    CNS 2655 原始阻抗 ｜ 壓降 (20°C, PF=1.0) ｜ 線損 (90°C, PF=0.99) ｜ 表 16-6 金屬導線管配線 90°C 載流基準 (含 1.25 倍安全係數)
                 </p>
             </div>
             <div class="flex items-center gap-2">
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-dracula-green/10 text-dracula-green border border-dracula-green/30">
-                    ● 三重把關：壓降 ≤ 3% ｜ 線徑 ≥ 14mm² ｜ 載流量不超載
+                    ● 三重把關：壓降 ≤ 3% ｜ 線徑 ≥ 14mm² ｜ 載流量不超載 (表16-6 3條基準)
                 </span>
             </div>
         </header>
@@ -155,30 +155,30 @@
                     <!-- 6. 導線規格 (mm²) -->
                     <div>
                         <label class="block text-xs font-semibold text-dracula-fg uppercase tracking-wider mb-1.5">
-                            6. 導線規格 (mm²) - 600V XLPE-PVC
+                            6. 導線規格 (mm²) - 表16-6 銅導線 (90°C)
                         </label>
                         <select id="selectWireSize" 
                             class="w-full bg-dracula-bg border border-dracula-current rounded-xl px-4 py-2.5 text-dracula-fg font-mono text-sm focus:outline-none focus:border-dracula-purple transition-colors">
-                            <option value="2">2 mm² (未達法規標準 / 20A)</option>
-                            <option value="3.5">3.5 mm² (未達法規標準 / 27A)</option>
-                            <option value="5.5">5.5 mm² (未達法規標準 / 35A)</option>
-                            <option value="8">8 mm² (未達法規標準 / 45A)</option>
-                            <option value="14" selected>14 mm² (法定基準 / 60A)</option>
-                            <option value="22">22 mm² (75A)</option>
-                            <option value="30">30 mm² (90A)</option>
-                            <option value="38">38 mm² (105A)</option>
-                            <option value="50">50 mm² (125A)</option>
-                            <option value="60">60 mm² (145A)</option>
-                            <option value="80">80 mm² (170A)</option>
-                            <option value="100">100 mm² (195A)</option>
+                            <option value="2">2.0 單 (未達法規標準 / 28A)</option>
+                            <option value="3.5">3.5 mm² (未達法規標準 / 30A)</option>
+                            <option value="5.5">5.5 mm² (未達法規標準 / 39A)</option>
+                            <option value="8">8 mm² (未達法規標準 / 51A)</option>
+                            <option value="14" selected>14 mm² (法定基準 / 74A)</option>
+                            <option value="22">22 mm² (93A)</option>
+                            <option value="30">30 mm² (116A)</option>
+                            <option value="38">38 mm² (130A)</option>
+                            <option value="50">50 mm² (155A)</option>
+                            <option value="60">60 mm² (176A)</option>
+                            <option value="80">80 mm² (208A)</option>
+                            <option value="100">100 mm² (242A)</option>
                         </select>
                         
                         <!-- 對齊後的三欄對稱網格 (Dracula 配色) -->
                         <div class="mt-2 p-2.5 bg-dracula-bg border border-dracula-current rounded-xl">
                             <div class="grid grid-cols-4 text-center divide-x divide-dracula-current font-mono">
                                 <div class="px-1">
-                                    <div class="text-[10px] text-dracula-comment mb-0.5">管內容許</div>
-                                    <div id="paramAmpacity" class="text-xs font-bold text-dracula-yellow">60 A</div>
+                                    <div class="text-[10px] text-dracula-comment mb-0.5">管內容許(3條)</div>
+                                    <div id="paramAmpacity" class="text-xs font-bold text-dracula-yellow">74 A</div>
                                 </div>
                                 <div class="px-1">
                                     <div class="text-[10px] text-dracula-comment mb-0.5">r(20°C) 壓降</div>
@@ -201,7 +201,7 @@
                                 依「用戶用電設備裝置規則」第九百九十三條，線徑不得小於 14mm²
                             </div>
                             <div class="text-[10px] text-dracula-comment font-mono">
-                                (民國 114 年 05 月 09 日修正) ｜ 載流基準：導線管配線 (3條以下)
+                                (民國 114 年 05 月 09 日修正) ｜ 載流基準：表 16-6 金屬導線管配線 (3條)
                             </div>
                         </div>
                     </div>
@@ -264,7 +264,7 @@
                             — <span class="text-sm font-normal text-dracula-comment">%</span>
                         </div>
                         <div class="mt-1 text-xs text-dracula-comment font-mono" id="labelDropSubText">
-                            壓降 ≤ 3% ｜ 線徑 ≥ 14mm² ｜ 安全載流
+                            壓降 ≤ 3% ｜ 線徑 ≥ 14mm² ｜ 表16-6 安全載流
                         </div>
                     </div>
 
@@ -308,7 +308,7 @@
                 <div class="bg-dracula-current/40 border border-dracula-current rounded-2xl overflow-hidden shadow-lg">
                     <button type="button" id="btnToggleTable" class="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-dracula-current/60 transition-colors">
                         <div class="flex items-center gap-2">
-                            <span class="text-sm font-semibold text-dracula-fg">CNS 2655 阻抗與 600V XLPE 管內載流量對照表</span>
+                            <span class="text-sm font-semibold text-dracula-fg">表 16-6 金屬導線管配線 (90°C, 3條) 與阻抗對照表</span>
                             <span class="text-xs px-2 py-0.5 rounded bg-dracula-bg text-dracula-comment">詳細參數</span>
                         </div>
                         <span id="iconTableChevron" class="text-dracula-comment text-sm transition-transform duration-200">▼</span>
@@ -319,7 +319,7 @@
                             <thead class="bg-dracula-bg text-dracula-comment uppercase text-[11px]">
                                 <tr>
                                     <th class="py-2.5 px-4">公稱截面積 (mm²)</th>
-                                    <th class="py-2.5 px-4 text-dracula-yellow">管內安全載流量 (A)</th>
+                                    <th class="py-2.5 px-4 text-dracula-yellow">表16-6 容許電流 (3條) (A)</th>
                                     <th class="py-2.5 px-4 text-dracula-cyan">20°C 直流電阻 (Ω/km)</th>
                                     <th class="py-2.5 px-4 text-dracula-orange">90°C 交流電阻 (Ω/km)</th>
                                     <th class="py-2.5 px-4 text-dracula-green">電抗 XL (Ω/km)</th>
@@ -339,20 +339,20 @@
 
     <!-- Application Logic -->
     <script>
-        // 內建 600V XLPE-PVC 在金屬管/導線管內（3條以下）之安全載流量 (ampacity)
+        // 完全依據「表 16-6 金屬導線管配線（導線溫度 90℃）- 容許電流（3條）」精確更新
         const WIRE_SPECS = {
-            2:   { ampacity: 20,  r20: 9.24,  r90: 11.8457, x: 0.1385, od: 4.4 },
-            3.5: { ampacity: 27,  r20: 5.20,  r90: 6.6664,  x: 0.1279, od: 5.0 },
-            5.5: { ampacity: 35,  r20: 3.33,  r90: 4.2691,  x: 0.1195, od: 5.6 },
-            8:   { ampacity: 45,  r20: 2.31,  r90: 2.9453,  x: 0.1212, od: 6.6 },
-            14:  { ampacity: 60,  r20: 1.30,  r90: 1.6575,  x: 0.1208, od: 8.6 },
-            22:  { ampacity: 75,  r20: 0.824, r90: 1.0506,  x: 0.1131, od: 9.8 },
-            30:  { ampacity: 90,  r20: 0.623, r90: 0.7943,  x: 0.1119, od: 11.0 },
-            38:  { ampacity: 105, r20: 0.487, r90: 0.6209,  x: 0.1084, od: 12.5 },
-            50:  { ampacity: 125, r20: 0.378, r90: 0.4820,  x: 0.1083, od: 14.0 },
-            60:  { ampacity: 145, r20: 0.303, r90: 0.3863,  x: 0.1051, od: 15.0 },
-            80:  { ampacity: 170, r20: 0.229, r90: 0.2920,  x: 0.1017, od: 16.0 },
-            100: { ampacity: 195, r20: 0.180, r90: 0.2297,  x: 0.0987, od: 18.5 }
+            2:   { ampacity: 28,  r20: 9.24,  r90: 11.8457, x: 0.1385, od: 4.4 },
+            3.5: { ampacity: 30,  r20: 5.20,  r90: 6.6664,  x: 0.1279, od: 5.0 },
+            5.5: { ampacity: 39,  r20: 3.33,  r90: 4.2691,  x: 0.1195, od: 5.6 },
+            8:   { ampacity: 51,  r20: 2.31,  r90: 2.9453,  x: 0.1212, od: 6.6 },
+            14:  { ampacity: 74,  r20: 1.30,  r90: 1.6575,  x: 0.1208, od: 8.6 },
+            22:  { ampacity: 93,  r20: 0.824, r90: 1.0506,  x: 0.1131, od: 9.8 },
+            30:  { ampacity: 116, r20: 0.623, r90: 0.7943,  x: 0.1119, od: 11.0 },
+            38:  { ampacity: 130, r20: 0.487, r90: 0.6209,  x: 0.1084, od: 12.5 },
+            50:  { ampacity: 155, r20: 0.378, r90: 0.4820,  x: 0.1083, od: 14.0 },
+            60:  { ampacity: 176, r20: 0.303, r90: 0.3863,  x: 0.1051, od: 15.0 },
+            80:  { ampacity: 208, r20: 0.229, r90: 0.2920,  x: 0.1017, od: 16.0 },
+            100: { ampacity: 242, r20: 0.180, r90: 0.2297,  x: 0.0987, od: 18.5 }
         };
 
         const PF_VOLTAGE_DROP = 1.0;
@@ -527,7 +527,7 @@
                 cardDropRate.className = 'bg-dracula-current/40 border border-dracula-current rounded-2xl p-5 relative overflow-hidden shadow-lg';
                 badgeDropStatus.textContent = '待計算';
                 badgeDropStatus.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-dracula-bg text-dracula-comment border border-dracula-current';
-                labelDropSubText.textContent = '壓降 ≤ 3% ｜ 線徑 ≥ 14mm² ｜ 安全載流';
+                labelDropSubText.textContent = '壓降 ≤ 3% ｜ 線徑 ≥ 14mm² ｜ 表16-6 安全載流';
 
                 valLossWatts.innerHTML = `— <span class="text-sm font-normal text-dracula-comment">W</span>`;
                 valLossFormula.textContent = '待填寫參數';
@@ -577,11 +577,11 @@
                 badgeDropStatus.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-dracula-green/20 text-dracula-green border border-dracula-green/30';
                 labelDropSubText.textContent = `壓降、線徑 (≥14mm²) 與載流容量 (${res.ampacity}A ≥ ${round3(reqDesignCurrent)}A) 均合規`;
             } else if (!isAmpacityQualified) {
-                // 載流容量不足（最嚴重）
+                // 載流容量不足
                 cardDropRate.className = 'bg-dracula-current/40 border border-dracula-red/50 rounded-2xl p-5 relative overflow-hidden shadow-lg shadow-dracula-red/10';
                 badgeDropStatus.textContent = '載流容量不足 (過載危險)';
                 badgeDropStatus.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-dracula-red/20 text-dracula-red border border-dracula-red/30';
-                labelDropSubText.textContent = `容許載流 ${res.ampacity}A < 連續設計電流 ${round3(reqDesignCurrent)}A (有燒毀風險)`;
+                labelDropSubText.textContent = `表16-6容許載流 ${res.ampacity}A < 連續設計電流 ${round3(reqDesignCurrent)}A (有發熱風險)`;
             } else if (!isWireSizeQualified) {
                 // 未達 14mm²
                 cardDropRate.className = 'bg-dracula-current/40 border border-dracula-red/50 rounded-2xl p-5 relative overflow-hidden shadow-lg shadow-dracula-red/10';
@@ -609,7 +609,7 @@
                             <h3 class="text-sm font-semibold text-dracula-green">目前導線規格完全符合法規與安全規範</h3>
                             <p class="text-xs text-dracula-comment mt-1 leading-relaxed">
                                 所選之 <strong class="text-dracula-fg">${currentWireSize} mm²</strong>：<br>
-                                1. 管內容許載流量為 <strong class="text-dracula-yellow">${currentRes.ampacity} A</strong>，高於連續運轉安全電流 <strong class="text-dracula-yellow">${round3(reqDesignCurrent)} A</strong>。<br>
+                                1. 表 16-6 管內容許載流量（3條）為 <strong class="text-dracula-yellow">${currentRes.ampacity} A</strong>，高於連續運轉安全電流 <strong class="text-dracula-yellow">${round3(reqDesignCurrent)} A</strong>。<br>
                                 2. 電壓降率為 <strong class="text-dracula-green">${round3(currentRes.dropRate)}%</strong>（≤ 3.000%），符合「用戶用電設備裝置規則」第 9 條與第 993 條（≥ 14mm²）規範。
                             </p>
                         </div>
@@ -639,7 +639,7 @@
 
                     if (!isAmpacityQualified) {
                         warningTitle = '⚠️ 嚴重過載警示 ｜ 導線載流容量不足';
-                        warningReason = `現有 <span class="text-dracula-red font-mono font-bold">${currentWireSize} mm²</span> 容許安全電流僅 <span class="text-dracula-red font-mono font-bold">${currentRes.ampacity} A</span>，無法承受連續安全電流 <span class="text-dracula-red font-mono font-bold">${round3(reqDesignCurrent)} A</span>（有發熱起火危險）。`;
+                        warningReason = `現有 <span class="text-dracula-red font-mono font-bold">${currentWireSize} mm²</span> 依表 16-6 容許安全電流僅 <span class="text-dracula-red font-mono font-bold">${currentRes.ampacity} A</span>，無法承受連續安全電流 <span class="text-dracula-red font-mono font-bold">${round3(reqDesignCurrent)} A</span>（有發熱起火危險）。`;
                     } else if (!isWireSizeQualified) {
                         warningTitle = '法規違規警示 ｜ 未達法定 14mm² 低標';
                         warningReason = `現有 <span class="text-dracula-red font-mono font-bold">${currentWireSize} mm²</span> 違反第 993 條「導線線徑不得小於 14mm²」之法定底線。`;
@@ -661,7 +661,7 @@
                         </div>
                         <p class="text-xs text-dracula-fg leading-relaxed">
                             ${warningReason}<br>
-                            建議升級至 <span class="text-dracula-green font-mono font-bold">${recommendedRes.wireSize} mm²</span>：容許電流提升至 <span class="text-dracula-yellow font-mono font-bold">${recommendedRes.ampacity} A</span>，壓降率降至 <span class="text-dracula-green font-mono font-bold">${round3(recommendedRes.dropRate)}%</span>，徹底符合載流與壓降標準。
+                            建議升級至 <span class="text-dracula-green font-mono font-bold">${recommendedRes.wireSize} mm²</span>：依表 16-6 容許電流提升至 <span class="text-dracula-yellow font-mono font-bold">${recommendedRes.ampacity} A</span>，壓降率降至 <span class="text-dracula-green font-mono font-bold">${round3(recommendedRes.dropRate)}%</span>，徹底符合載流與壓降標準。
                         </p>
                         <div class="grid grid-cols-3 gap-2 pt-2 border-t border-dracula-current text-center">
                             <div class="bg-dracula-bg/80 p-2.5 rounded-xl">
@@ -693,7 +693,7 @@
                             <div>
                                 <h3 class="text-sm font-semibold text-dracula-fg">超出對照表最大線徑規格 (> 100 mm² 或電流過大)</h3>
                                 <p class="text-xs text-dracula-comment mt-1">
-                                    即使用最大之 100 mm² 導線（容許載流 195A），在目前條件下依然無法同時滿足安全載流或 3% 壓降限制。建議考慮採用多組電纜並聯敷設。
+                                    即使用最大之 100 mm² 導線（容許載流 242A），在目前條件下依然無法同時滿足安全載流或 3% 壓降限制。建議考慮採用多組電纜並聯敷設。
                                 </p>
                             </div>
                         </div>
