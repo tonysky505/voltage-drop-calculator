@@ -1,2496 +1,789 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="robots" content="noindex, nofollow"> 
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>日常軌跡 · 習慣與健康系統</title>
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Lucide Icons CDN -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <!-- Canvas Confetti CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
-
-  <!-- Firebase App & Firestore SDKs (Compat 版) -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            scholar: {
-              paper: '#F4F3EA',       /* 米白底色 */
-              navy: '#333D51',        /* 深海軍藍灰 */
-              gold: '#D3AC2B',        /* 拋光古董金 */
-              silver: '#CBD0D8',      /* 霧灰銀 */
-              border: '#E3DFD2',      /* 精緻邊框色 */
-              card: '#FCFBF7',        /* 卡片白底色 */
-              textMuted: '#687182',   /* 次要文字 */
-              hover: '#EBE8DE'
+    <meta charset="UTF-8">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>低壓線路電壓降與線路損失率計算工具 - Dracula Theme</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dracula: {
+                            bg: '#282a36',
+                            current: '#44475a',
+                            fg: '#f8f8f2',
+                            comment: '#6272a4',
+                            cyan: '#8be9fd',
+                            green: '#50fa7b',
+                            orange: '#ffb86c',
+                            pink: '#ff79c6',
+                            purple: '#bd93f9',
+                            red: '#ff5555',
+                            yellow: '#f1fa8c'
+                        }
+                    }
+                }
             }
-          },
-          fontFamily: {
-            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Noto Sans TC"', 'sans-serif'],
-          }
         }
-      }
-    };
-  </script>
-  <style>
-    .no-scrollbar::-webkit-scrollbar {
-      display: none;
-    }
-    .no-scrollbar {
-      -ms-overflow-style: none;
-      scrollbar-width: none;
-    }
-
-    ::-webkit-scrollbar {
-      width: 5px;
-      height: 5px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #F4F3EA;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #CBD0D8;
-      border-radius: 9999px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: #333D51;
-    }
-    input[type="date"] {
-      -webkit-appearance: none;
-      appearance: none;
-      min-height: 2.5rem;
-    }
-  </style>
+    </script>
+    <style>
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+    </style>
 </head>
-<body class="bg-scholar-paper text-scholar-navy font-sans min-h-screen selection:bg-scholar-gold/20 selection:text-scholar-navy pb-24 antialiased">
-
-  <!-- 頂部主導覽列 -->
-  <header class="sticky top-0 z-30 bg-scholar-paper/95 backdrop-blur-md border-b border-scholar-border">
-    <div class="max-w-5xl mx-auto px-3.5 sm:px-6 h-15 sm:h-16 flex items-center justify-between gap-2">
-      <!-- 品牌與雲端連線狀態 -->
-      <div class="flex items-center gap-2 sm:gap-3 min-w-0">
-        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-scholar-navy text-scholar-paper flex items-center justify-center shadow-xs shrink-0">
-          <i data-lucide="compass" class="w-4 h-4 sm:w-5 sm:h-5 text-scholar-gold"></i>
-        </div>
-        <div class="truncate">
-          <div class="flex items-center gap-1.5">
-            <h1 class="text-sm sm:text-base font-semibold tracking-wide text-scholar-navy truncate">日常軌跡</h1>
-            <span id="sync-status-indicator" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] bg-scholar-silver/30 text-scholar-navy font-medium shrink-0" title="雲端同步狀態">
-              <span id="sync-status-dot" class="w-1.5 h-1.5 rounded-full bg-scholar-silver"></span>
-              <span id="sync-status-text" class="hidden xs:inline">連線中</span>
-            </span>
-          </div>
-          <p class="text-[11px] sm:text-xs text-scholar-textMuted truncate" id="current-date-display">載入中...</p>
-        </div>
-      </div>
-
-      <!-- 右側：依模式切換的操作按鈕組 -->
-      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
-        <!-- 習慣專用按鈕 -->
-        <div id="header-actions-habit" class="flex items-center gap-1.5 sm:gap-2">
-          <button id="btn-open-category-modal" class="p-1.5 sm:px-3 sm:py-1.5 rounded-xl border border-scholar-border bg-scholar-card text-scholar-navy hover:bg-scholar-hover transition flex items-center gap-1 text-xs font-medium shadow-xs" title="習慣分類管理">
-            <i data-lucide="tag" class="w-3.5 h-3.5 shrink-0 text-scholar-textMuted"></i>
-            <span class="hidden sm:inline">分類管理</span>
-          </button>
-          <button id="btn-open-habit-modal" class="px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-scholar-navy text-scholar-paper text-xs font-medium hover:bg-scholar-navy/90 transition flex items-center gap-1 whitespace-nowrap shadow-xs">
-            <i data-lucide="plus" class="w-3.5 h-3.5 shrink-0 text-scholar-gold"></i>
-            <span>新增習慣</span>
-          </button>
-        </div>
-
-        <!-- 健康用藥專用按鈕 -->
-        <div id="header-actions-health" class="hidden items-center gap-1.5 sm:gap-2">
-          <button id="btn-open-med-manager-modal" class="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-scholar-border bg-scholar-card text-scholar-navy hover:bg-scholar-hover transition flex items-center gap-1 text-xs font-medium shadow-xs" title="藥箱母檔管理">
-            <i data-lucide="archive" class="w-3.5 h-3.5 shrink-0 text-scholar-textMuted"></i>
-            <span class="hidden sm:inline">藥箱</span>
-          </button>
-          <button id="btn-open-health-modal" class="px-2 sm:px-3 py-1.5 rounded-xl border border-scholar-border bg-scholar-card text-scholar-navy hover:bg-scholar-hover transition flex items-center gap-1 text-xs font-medium shadow-xs">
-            <i data-lucide="activity" class="w-3.5 h-3.5 text-scholar-gold shrink-0"></i>
-            <span>記血壓</span>
-          </button>
-          <button id="btn-open-log-med-modal" class="px-2.5 sm:px-3 py-1.5 rounded-xl border border-scholar-gold/60 bg-scholar-gold/15 text-scholar-navy hover:bg-scholar-gold/25 transition flex items-center gap-1 text-xs font-semibold shadow-xs">
-            <i data-lucide="pill" class="w-3.5 h-3.5 text-scholar-gold shrink-0"></i>
-            <span>記服藥</span>
-          </button>
-        </div>
-
-        <!-- 備份按鈕 -->
-        <button id="btn-open-data-modal" class="p-1.5 sm:p-2 rounded-xl border border-scholar-border bg-scholar-card text-scholar-textMuted hover:text-scholar-navy hover:bg-scholar-hover transition shadow-xs" title="資料管理與備份">
-          <i data-lucide="database" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <main class="max-w-5xl mx-auto px-3.5 sm:px-6 pt-3 sm:pt-5 space-y-5 sm:space-y-6">
-
-    <!-- 頂部主工作區切換器 -->
-    <section class="flex justify-center">
-      <div class="bg-scholar-hover/90 p-1.5 rounded-2xl border border-scholar-border/80 flex items-center gap-1 w-full sm:w-auto shadow-2xs">
-        <button id="main-tab-habit" class="flex-1 sm:flex-initial px-6 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 bg-scholar-card text-scholar-navy shadow-xs border border-scholar-border/50">
-          <i data-lucide="check-circle-2" class="w-4 h-4 text-scholar-gold"></i>
-          <span>習慣實踐</span>
-        </button>
-        <button id="main-tab-health" class="flex-1 sm:flex-initial px-6 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all flex items-center justify-center gap-2 text-scholar-textMuted hover:text-scholar-navy">
-          <i data-lucide="heart-pulse" class="w-4 h-4 text-scholar-gold"></i>
-          <span>健康與用藥</span>
-        </button>
-      </div>
-    </section>
-
-    <!-- 區塊 A: 習慣實踐專屬工作區 -->
-    <div id="workspace-habit" class="space-y-5 sm:space-y-6">
-      <section class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-        <div class="bg-scholar-card rounded-2xl p-4 sm:p-5 border border-scholar-border shadow-xs flex flex-col justify-between">
-          <div class="flex items-center justify-between text-scholar-textMuted mb-2">
-            <span class="text-xs font-medium tracking-wider uppercase">今日習慣達成度</span>
-            <i data-lucide="check-circle-2" class="w-4 h-4 text-scholar-gold"></i>
-          </div>
-          <div>
-            <div class="flex items-baseline gap-2">
-              <span class="text-2xl sm:text-3xl font-bold tracking-tight text-scholar-navy" id="stat-progress-pct">0%</span>
-              <span class="text-xs text-scholar-textMuted" id="stat-completed-count">0 / 0 已完成</span>
-            </div>
-            <div class="w-full bg-scholar-paper h-2 rounded-full mt-2.5 overflow-hidden border border-scholar-border/60">
-              <div id="stat-progress-bar" class="bg-scholar-gold h-full rounded-full transition-all duration-500" style="width: 0%"></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-gradient-to-br from-scholar-paper to-scholar-silver/20 rounded-2xl p-4 sm:p-5 border border-scholar-border shadow-xs flex flex-col justify-between">
-          <div class="flex items-center justify-between text-scholar-textMuted mb-2">
-            <span class="text-xs font-medium tracking-wider uppercase">連續實踐節奏 (STREAK)</span>
-            <i data-lucide="flame" class="w-4 h-4 text-scholar-gold"></i>
-          </div>
-          <div>
-            <div class="flex items-baseline gap-1.5">
-              <span class="text-2xl sm:text-3xl font-bold tracking-tight text-scholar-navy" id="stat-longest-streak">0</span>
-              <span class="text-xs text-scholar-textMuted">天不間斷</span>
-            </div>
-            <p class="text-xs text-scholar-navy/80 leading-relaxed mt-1 line-clamp-2">
-              「規律生活不是束縛，而是給身體最安心的節奏。」
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section class="space-y-3">
-        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 w-full" id="category-filter-bar"></div>
-
-        <div class="flex items-center bg-scholar-hover/80 p-1 rounded-xl w-full sm:w-fit overflow-x-auto no-scrollbar border border-scholar-border/60">
-          <button id="view-tab-today" class="flex-1 sm:flex-initial px-3.5 py-1.5 text-xs font-medium rounded-lg bg-scholar-card text-scholar-navy shadow-xs transition whitespace-nowrap text-center">今日打卡</button>
-          <button id="view-tab-grid" class="flex-1 sm:flex-initial px-3.5 py-1.5 text-xs font-medium rounded-lg text-scholar-textMuted hover:text-scholar-navy transition whitespace-nowrap text-center">子彈網格 (14天)</button>
-          <button id="view-tab-stats" class="flex-1 sm:flex-initial px-3.5 py-1.5 text-xs font-medium rounded-lg text-scholar-textMuted hover:text-scholar-navy transition whitespace-nowrap text-center">年度熱力圖</button>
-        </div>
-      </section>
-
-      <section id="view-today" class="space-y-3">
-        <div id="today-habits-container" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
-        <div id="today-empty-state" class="hidden text-center py-16 bg-scholar-card/80 rounded-2xl border border-dashed border-scholar-silver">
-          <i data-lucide="coffee" class="w-9 h-9 text-scholar-silver mx-auto mb-2.5"></i>
-          <h3 class="text-sm font-medium text-scholar-navy">目前尚無習慣項目</h3>
-          <p class="text-xs text-scholar-textMuted mt-1">點擊右上角「新增習慣」開始建立生活軌跡！</p>
-        </div>
-      </section>
-
-      <section id="view-grid" class="hidden bg-scholar-card rounded-2xl border border-scholar-border p-4 sm:p-5 shadow-xs space-y-4">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <div class="flex items-center gap-2 flex-wrap">
-              <h2 class="text-sm font-semibold text-scholar-navy">子彈打卡網格 (14 天)</h2>
-              <span id="grid-date-range-badge" class="text-[11px] px-2 py-0.5 rounded-md bg-scholar-paper border border-scholar-border text-scholar-navy font-mono">載入中...</span>
-            </div>
-            <p class="text-xs text-scholar-textMuted mt-0.5">點擊方塊可直接補卡或取消</p>
-          </div>
-
-          <div class="flex items-center gap-1.5 self-start sm:self-auto">
-            <button id="btn-grid-prev-period" type="button" class="px-2.5 py-1 text-xs font-medium bg-scholar-paper hover:bg-scholar-hover border border-scholar-border text-scholar-navy rounded-lg transition flex items-center gap-1 shadow-xs">
-              <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
-              <span>上兩週</span>
-            </button>
-            <button id="btn-grid-today" type="button" class="px-2.5 py-1 text-xs font-medium bg-scholar-paper hover:bg-scholar-hover border border-scholar-border text-scholar-navy rounded-lg transition shadow-xs">
-              今天
-            </button>
-            <button id="btn-grid-next-period" type="button" class="px-2.5 py-1 text-xs font-medium bg-scholar-paper hover:bg-scholar-hover border border-scholar-border text-scholar-navy rounded-lg transition flex items-center gap-1 shadow-xs">
-              <span>下兩週</span>
-              <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
-            </button>
-          </div>
-        </div>
-
-        <div class="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-          <div class="min-w-[620px]" id="bullet-grid-table-container"></div>
-        </div>
-
-        <div class="flex items-center justify-end gap-3 pt-2 border-t border-scholar-border/70 text-[11px] text-scholar-textMuted flex-wrap">
-          <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-scholar-gold"></span>已打卡</span>
-          <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-scholar-silver/40"></span>未打卡</span>
-          <span class="inline-flex items-center gap-1"><span class="text-scholar-gold font-bold">金色</span>為今日</span>
-        </div>
-      </section>
-
-      <section id="view-stats" class="hidden space-y-6">
-        <div class="bg-scholar-card rounded-2xl border border-scholar-border p-4 sm:p-5 shadow-xs">
-          <div class="flex items-center justify-between mb-3">
+<body class="bg-dracula-bg text-dracula-fg min-h-screen p-4 sm:p-6 lg:p-8 font-sans antialiased">
+    <div class="max-w-6xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row md:items-center justify-between border-b border-dracula-current pb-5 gap-3">
             <div>
-              <h2 class="text-sm font-semibold text-scholar-navy">年度習慣實踐熱力圖</h2>
-              <p class="text-xs text-scholar-textMuted">展示每日習慣完成密度</p>
+                <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2">
+                    <span class="p-2 bg-dracula-purple text-dracula-bg rounded-lg inline-flex shadow-lg shadow-dracula-purple/20">⚡</span>
+                    低壓配電電壓降、線損與安全載流計算
+                </h1>
+                <p class="text-sm text-dracula-comment mt-1">
+                    CNS 2655 原始阻抗 ｜ 壓降 (20°C, PF=1.0) ｜ 線損 (90°C, PF=0.99) ｜ 表 16-6 金屬導線管配線 90°C 載流基準 (含 1.25 倍安全係數)
+                </p>
             </div>
-            <div class="text-xs text-scholar-textMuted flex items-center gap-1">
-              <span>少</span>
-              <div class="flex gap-1">
-                <span class="w-2.5 h-2.5 rounded-xs bg-scholar-paper border border-scholar-border/50"></span>
-                <span class="w-2.5 h-2.5 rounded-xs bg-scholar-silver/40"></span>
-                <span class="w-2.5 h-2.5 rounded-xs bg-scholar-gold/40"></span>
-                <span class="w-2.5 h-2.5 rounded-xs bg-scholar-gold/70"></span>
-                <span class="w-2.5 h-2.5 rounded-xs bg-scholar-gold"></span>
-              </div>
-              <span>多</span>
-            </div>
-          </div>
-          <div class="overflow-x-auto py-2 -mx-2 px-2">
-            <div id="heatmap-container" class="flex gap-1.5 min-w-[680px]"></div>
-          </div>
-        </div>
-
-        <div class="bg-scholar-card rounded-2xl border border-scholar-border p-4 sm:p-5 shadow-xs">
-          <h2 class="text-sm font-semibold text-scholar-navy mb-4">各習慣總打卡統計</h2>
-          <div id="habit-rankings-container" class="space-y-3"></div>
-        </div>
-      </section>
-    </div>
-
-    <!-- 區塊 B: 健康與用藥專屬工作區 -->
-    <div id="workspace-health" class="hidden space-y-5 sm:space-y-6">
-      <section class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-        <div class="bg-scholar-card rounded-2xl p-4 sm:p-5 border border-scholar-border shadow-xs flex flex-col justify-between">
-          <div class="flex items-center justify-between text-scholar-textMuted mb-2">
-            <span class="text-xs font-medium tracking-wider uppercase">最新血壓與體重指標</span>
-            <i data-lucide="heart-pulse" class="w-4 h-4 text-scholar-gold"></i>
-          </div>
-          <div>
-            <div class="flex items-baseline gap-2">
-              <span class="text-2xl sm:text-3xl font-bold tracking-tight text-scholar-navy" id="stat-bp-val">--/--</span>
-              <span class="text-xs text-scholar-textMuted">mmHg</span>
-            </div>
-            <div class="text-xs text-scholar-textMuted mt-2 flex items-center gap-2 flex-wrap">
-              <span>體重: <strong class="text-scholar-navy" id="stat-weight-val">--</strong> kg</span>
-              <span class="text-scholar-silver">|</span>
-              <span id="stat-bp-tag" class="px-2 py-0.5 rounded text-[10px] bg-scholar-paper text-scholar-textMuted border border-scholar-border">未記錄</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-gradient-to-br from-scholar-paper to-scholar-silver/20 rounded-2xl p-4 sm:p-5 border border-scholar-border shadow-xs flex flex-col justify-between">
-          <div class="flex items-center justify-between text-scholar-textMuted mb-2">
-            <span class="text-xs font-medium tracking-wider uppercase">今日服藥狀態</span>
-            <i data-lucide="pill" class="w-4 h-4 text-scholar-gold"></i>
-          </div>
-          <div>
-            <div class="flex items-baseline gap-1.5">
-              <span class="text-2xl sm:text-3xl font-bold tracking-tight text-scholar-navy" id="stat-today-med-count">0</span>
-              <span class="text-xs text-scholar-textMuted">次完成紀錄</span>
-            </div>
-            <p class="text-xs text-scholar-navy/80 leading-relaxed mt-1 line-clamp-2" id="stat-today-med-desc">
-              按時用藥，保持身體恆定節奏。
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section class="flex items-center justify-between gap-3 bg-scholar-card rounded-2xl p-3.5 sm:p-4 border border-scholar-border shadow-xs flex-wrap">
-        <div class="inline-flex bg-scholar-paper p-1 rounded-xl border border-scholar-border text-xs">
-          <button id="subtab-bp" class="px-3.5 py-1.5 rounded-lg bg-scholar-card text-scholar-navy font-semibold shadow-xs transition">血壓與體重歷史</button>
-          <button id="subtab-med" class="px-3.5 py-1.5 rounded-lg text-scholar-textMuted hover:text-scholar-navy transition">用藥歷史日誌</button>
-        </div>
-        <div class="flex items-center gap-2">
-          <button id="btn-health-quick-log-bp" type="button" class="px-3 py-1.5 text-xs font-medium border border-scholar-border bg-scholar-paper text-scholar-navy rounded-xl hover:bg-scholar-hover transition flex items-center gap-1 shadow-xs">
-            <i data-lucide="plus" class="w-3.5 h-3.5 text-scholar-gold"></i>
-            <span>記一筆血壓</span>
-          </button>
-          <button id="btn-health-quick-log-med" type="button" class="px-3 py-1.5 text-xs font-semibold bg-scholar-gold text-scholar-navy rounded-xl hover:bg-scholar-gold/90 transition flex items-center gap-1 shadow-xs">
-            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-            <span>記一筆服藥</span>
-          </button>
-        </div>
-      </section>
-
-      <div id="subview-bp" class="bg-scholar-card rounded-2xl border border-scholar-border shadow-xs overflow-hidden">
-        <div class="overflow-x-auto -mx-0">
-          <table class="w-full text-left border-collapse text-xs min-w-[580px]">
-            <thead>
-              <tr class="bg-scholar-paper border-b border-scholar-border text-scholar-textMuted font-semibold">
-                <th class="py-3 px-3 sm:px-4">日期</th>
-                <th class="py-3 px-2 sm:px-3">時段</th>
-                <th class="py-3 px-2 sm:px-3">收縮壓 (SYS)</th>
-                <th class="py-3 px-2 sm:px-3">舒張壓 (DIA)</th>
-                <th class="py-3 px-2 sm:px-3">狀態評估</th>
-                <th class="py-3 px-2 sm:px-3">體重 (kg)</th>
-                <th class="py-3 px-3 sm:px-4 min-w-[140px]">MEMO 備忘</th>
-                <th class="py-3 px-3 text-right">操作</th>
-              </tr>
-            </thead>
-            <tbody id="health-logs-table-body" class="divide-y divide-scholar-border/50"></tbody>
-          </table>
-        </div>
-        <div id="health-empty-state" class="hidden text-center py-12">
-          <i data-lucide="activity" class="w-8 h-8 text-scholar-silver mx-auto mb-2"></i>
-          <p class="text-xs text-scholar-textMuted">尚無血壓或體重紀錄，點擊上方按鈕開始記錄！</p>
-        </div>
-      </div>
-
-      <div id="subview-med" class="hidden bg-scholar-card rounded-2xl border border-scholar-border shadow-xs overflow-hidden">
-        <div class="overflow-x-auto -mx-0">
-          <table class="w-full text-left border-collapse text-xs min-w-[580px]">
-            <thead>
-              <tr class="bg-scholar-paper border-b border-scholar-border text-scholar-textMuted font-semibold">
-                <th class="py-3 px-3 sm:px-4">日期</th>
-                <th class="py-3 px-2 sm:px-3">服藥時段</th>
-                <th class="py-3 px-3 min-w-[220px]">已服用之藥品與劑量</th>
-                <th class="py-3 px-3 sm:px-4 min-w-[150px]">備忘 / 狀況</th>
-                <th class="py-3 px-3 text-right">操作</th>
-              </tr>
-            </thead>
-            <tbody id="med-logs-table-body" class="divide-y divide-scholar-border/50"></tbody>
-          </table>
-        </div>
-        <div id="med-empty-state" class="hidden text-center py-12">
-          <i data-lucide="pill" class="w-8 h-8 text-scholar-silver mx-auto mb-2"></i>
-          <p class="text-xs text-scholar-textMuted">尚無服藥紀錄，點擊上方按鈕開始記錄！</p>
-        </div>
-      </div>
-    </div>
-
-  </main>
-
-  <!-- 圖片檢視放大燈箱 -->
-  <div id="modal-image-lightbox" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-scholar-navy/85 backdrop-blur-md hidden" onclick="closeImageLightbox()">
-    <div class="max-w-xs sm:max-w-md w-full bg-scholar-card p-3 rounded-2xl border border-scholar-border shadow-2xl relative" onclick="event.stopPropagation()">
-      <button onclick="closeImageLightbox()" type="button" class="absolute top-2 right-2 text-scholar-navy hover:text-scholar-gold p-1.5 rounded-lg bg-scholar-paper/80 transition">
-        <i data-lucide="x" class="w-5 h-5"></i>
-      </button>
-      <img id="lightbox-img" src="" alt="藥品大圖" class="w-full max-h-[70vh] object-contain rounded-xl border border-scholar-border" />
-      <p id="lightbox-caption" class="text-xs text-center text-scholar-navy font-semibold mt-2.5"></p>
-    </div>
-  </div>
-
-  <!-- 1. 記錄服藥日誌彈窗 -->
-  <div id="modal-log-med" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-scholar-navy/60 backdrop-blur-sm hidden">
-    <div class="bg-scholar-card rounded-t-3xl sm:rounded-2xl border border-scholar-border shadow-2xl w-full max-w-md p-5 sm:p-6 max-h-[92vh] overflow-y-auto">
-      <div class="flex items-center justify-between pb-3 border-b border-scholar-border">
-        <div class="flex items-center gap-2">
-          <i data-lucide="pill" class="w-5 h-5 text-scholar-gold"></i>
-          <h3 id="modal-log-med-title" class="text-base font-semibold text-scholar-navy">記錄服藥</h3>
-        </div>
-        <button id="btn-close-log-med-modal" type="button" class="text-scholar-textMuted hover:text-scholar-navy p-1.5 rounded-lg">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <form id="form-log-med" class="space-y-4 pt-3.5">
-        <input type="hidden" id="input-log-med-id" />
-        <input type="hidden" id="input-log-med-period" value="晨起" />
-
-        <div>
-          <label class="block text-xs font-medium text-scholar-navy mb-1">服藥日期</label>
-          <input type="date" id="input-log-med-date" required class="w-full px-3.5 py-2.5 text-sm bg-scholar-paper border border-scholar-border rounded-xl focus:outline-none focus:ring-2 focus:ring-scholar-gold/30 focus:border-scholar-gold transition text-scholar-navy" />
-        </div>
-
-        <div>
-          <label class="block text-xs font-medium text-scholar-navy mb-1.5">服藥時段</label>
-          <div class="grid grid-cols-4 gap-1.5 bg-scholar-paper p-1 rounded-xl border border-scholar-border/60">
-            <button type="button" class="btn-med-period-tab py-2 text-xs font-medium rounded-lg transition-all text-center" data-period="晨起">晨起</button>
-            <button type="button" class="btn-med-period-tab py-2 text-xs font-medium rounded-lg transition-all text-center" data-period="午間">午間</button>
-            <button type="button" class="btn-med-period-tab py-2 text-xs font-medium rounded-lg transition-all text-center" data-period="晚間">晚間</button>
-            <button type="button" class="btn-med-period-tab py-2 text-xs font-medium rounded-lg transition-all text-center" data-period="睡前">睡前</button>
-          </div>
-        </div>
-
-        <div>
-          <div class="flex items-center justify-between mb-1.5">
-            <label class="text-xs font-medium text-scholar-navy">勾選服用之藥品 (依排程推薦)</label>
-            <button type="button" id="btn-quick-manage-meds" class="text-[11px] text-scholar-gold hover:text-scholar-navy font-semibold underline">
-              + 管理藥箱
-            </button>
-          </div>
-          <div id="med-checklist-container" class="space-y-2 max-h-56 overflow-y-auto p-2 bg-scholar-paper rounded-xl border border-scholar-border/80"></div>
-        </div>
-
-        <div>
-          <label class="block text-xs font-medium text-scholar-navy mb-1">MEMO 備忘 (服用感受、隨餐等)</label>
-          <textarea id="input-log-med-memo" rows="2" placeholder="例如：飯後 30 分鐘服用、胃部無不適..." class="w-full px-3 py-2 text-sm bg-scholar-paper border border-scholar-border rounded-xl focus:outline-none focus:ring-2 focus:ring-scholar-gold/30 focus:border-scholar-gold transition text-scholar-navy resize-none"></textarea>
-        </div>
-
-        <div class="pt-2 pb-1 flex items-center justify-end gap-2">
-          <button id="btn-cancel-log-med" type="button" class="px-4 py-2 text-sm text-scholar-textMuted hover:bg-scholar-hover rounded-xl transition">取消</button>
-          <button type="submit" class="px-5 py-2 text-sm font-medium bg-scholar-navy text-scholar-paper rounded-xl hover:bg-scholar-navy/90 transition shadow-sm">儲存紀錄</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- 2. 藥箱母檔管理清單彈窗 -->
-  <div id="modal-med-manager" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-scholar-navy/60 backdrop-blur-sm hidden">
-    <div class="bg-scholar-card rounded-t-3xl sm:rounded-2xl border border-scholar-border shadow-2xl w-full max-w-lg p-5 sm:p-6 max-h-[90vh] flex flex-col">
-      <div class="flex items-center justify-between pb-3 border-b border-scholar-border">
-        <div class="flex items-center gap-2">
-          <i data-lucide="archive" class="w-5 h-5 text-scholar-gold"></i>
-          <h3 class="text-base font-semibold text-scholar-navy">我的藥箱 (藥品母檔)</h3>
-        </div>
-        <button id="btn-close-med-manager" type="button" class="text-scholar-textMuted hover:text-scholar-navy p-1.5 rounded-lg">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <div class="flex-1 overflow-y-auto py-3.5 space-y-2.5" id="med-manager-list"></div>
-
-      <div class="pt-3 border-t border-scholar-border flex justify-between items-center">
-        <span class="text-xs text-scholar-textMuted">支援拍照上傳藥物外觀比對</span>
-        <button id="btn-open-create-med" type="button" class="px-3.5 py-1.5 text-xs font-semibold bg-scholar-gold text-scholar-navy rounded-xl hover:bg-scholar-gold/90 transition flex items-center gap-1.5 shadow-xs">
-          <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-          <span>新增藥品</span>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 3. 新增/編輯藥品彈窗 -->
-  <div id="modal-med-edit" class="fixed inset-0 z-[75] flex items-center justify-center p-4 bg-scholar-navy/70 backdrop-blur-sm hidden">
-    <div class="bg-scholar-card rounded-2xl border border-scholar-border shadow-2xl w-full max-w-sm p-5 max-h-[94vh] overflow-y-auto">
-      <div class="flex items-center justify-between pb-2 border-b border-scholar-border mb-3">
-        <h4 id="med-edit-title" class="text-sm font-semibold text-scholar-navy">新增常用藥品</h4>
-        <button id="btn-close-med-edit" type="button" class="text-scholar-textMuted hover:text-scholar-navy p-1 rounded-lg">
-          <i data-lucide="x" class="w-4 h-4"></i>
-        </button>
-      </div>
-
-      <form id="form-med-edit" class="space-y-3.5">
-        <input type="hidden" id="input-med-id" />
-        <input type="hidden" id="input-med-photo" />
-
-        <div>
-          <label class="block text-xs font-medium text-scholar-navy mb-1.5">藥品外觀照片 (預防吃錯)</label>
-          <div class="flex items-center gap-3">
-            <div id="med-photo-preview-container" class="w-14 h-14 rounded-xl bg-scholar-paper border border-dashed border-scholar-border flex items-center justify-center overflow-hidden shrink-0">
-              <i data-lucide="image" class="w-5 h-5 text-scholar-silver" id="med-photo-placeholder-icon"></i>
-              <img id="med-photo-preview" src="" alt="預覽圖" class="w-full h-full object-cover hidden" />
-            </div>
-            <div class="flex-1 space-y-1">
-              <div class="flex items-center gap-2">
-                <label class="px-2.5 py-1.5 bg-scholar-card border border-scholar-border rounded-lg text-xs font-semibold text-scholar-navy hover:bg-scholar-hover cursor-pointer transition flex items-center gap-1 shadow-2xs">
-                  <i data-lucide="camera" class="w-3.5 h-3.5 text-scholar-gold"></i>
-                  <span>拍照 / 上傳</span>
-                  <input type="file" id="input-file-med-photo" accept="image/*" class="hidden" />
-                </label>
-                <button type="button" id="btn-remove-med-photo" class="text-xs text-scholar-silver hover:text-scholar-navy hidden">移除</button>
-              </div>
-              <p class="text-[10px] text-scholar-textMuted leading-tight">建議拍攝藥丸形狀或藥袋標籤，系統將自動最佳化壓縮。</p>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-xs font-medium text-scholar-navy mb-1">藥品名稱</label>
-          <input type="text" id="input-med-name" required placeholder="例如：康肯、骨質調節藥" class="w-full px-3 py-2 text-sm bg-scholar-paper border border-scholar-border rounded-xl focus:outline-none focus:ring-2 focus:ring-scholar-gold/30 focus:border-scholar-gold transition text-scholar-navy" />
-        </div>
-
-        <div class="grid grid-cols-2 gap-2.5">
-          <div>
-            <label class="block text-xs font-medium text-scholar-navy mb-1">每次劑量</label>
-            <input type="text" id="input-med-dosage" required placeholder="例如：1/2 顆、1 錠" class="w-full px-3 py-2 text-sm bg-scholar-paper border border-scholar-border rounded-xl focus:outline-none focus:ring-2 focus:ring-scholar-gold/30 focus:border-scholar-gold transition text-scholar-navy" />
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-scholar-navy mb-1">服藥頻率模式</label>
-            <select id="select-med-freq-type" class="w-full px-3 py-2 text-sm bg-scholar-paper border border-scholar-border rounded-xl focus:outline-none focus:ring-2 focus:ring-scholar-gold/30 focus:border-scholar-gold transition text-scholar-navy">
-              <option value="daily">每日服用</option>
-              <option value="weekly_custom">自訂每週排程 (如一週三次)</option>
-              <option value="prn">需要時服用 (PRN)</option>
-            </select>
-          </div>
-        </div>
-
-        <div id="section-med-weekdays" class="hidden p-2.5 bg-scholar-paper rounded-xl border border-scholar-border/80 space-y-1.5">
-          <label class="block text-[11px] font-semibold text-scholar-navy">勾選服藥的星期 (排定日將自動打勾)</label>
-          <div class="grid grid-cols-7 gap-1" id="weekday-selector-container"></div>
-        </div>
-
-        <div>
-          <label class="block text-xs font-medium text-scholar-navy mb-1">建議時段</label>
-          <select id="select-med-timing" class="w-full px-3 py-2 text-sm bg-scholar-paper border border-scholar-border rounded-xl focus:outline-none focus:ring-2 focus:ring-scholar-gold/30 focus:border-scholar-gold transition text-scholar-navy">
-            <option value="晨起">晨起空腹 / 晨起</option>
-            <option value="早飯後">早餐後</option>
-            <option value="午間">午餐後 / 午間</option>
-            <option value="晚間">晚餐後 / 晚間</option>
-            <option value="睡前">睡前</option>
-            <option value="需要時">需要時服用</option>
-          </select>
-        </div>
-
-        <div>
-          <label class="block text-xs font-medium text-scholar-navy mb-1">補充說明 (選填)</label>
-          <input type="text" id="input-med-notes" placeholder="例如：間隔 48 小時服用、隨餐服用" class="w-full px-3 py-2 text-sm bg-scholar-paper border border-scholar-border rounded-xl focus:outline-none focus:ring-2 focus:ring-scholar-gold/30 focus:border-scholar-gold transition text-scholar-navy" />
-        </div>
-
-        <div class="pt-2 flex items-center justify-end gap-2">
-          <button id="btn-cancel-med-edit" type="button" class="px-3 py-1.5 text-xs text-scholar-textMuted hover:bg-scholar-hover rounded-lg transition">取消</button>
-          <button type="submit" class="px-4 py-1.5 text-xs font-medium bg-scholar-navy text-scholar-paper rounded-lg hover:bg-scholar-navy/90 transition">確定儲存</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- 4. 血壓與體重登記彈窗 -->
-  <div id="modal-health" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-scholar-navy/60 backdrop-blur-sm hidden">
-    <div class="bg-scholar-card rounded-t-3xl sm:rounded-2xl border border-scholar-border shadow-2xl w-full max-w-md p-5 sm:p-6 max-h-[92vh] overflow-y-auto">
-      <div class="flex items-center justify-between pb-3 border-b border-scholar-border">
-        <div class="flex items-center gap-2">
-          <i data-lucide="activity" class="w-5 h-5 text-scholar-gold"></i>
-          <h3 id="modal-health-title" class="text-base font-semibold text-scholar-navy">記錄血壓與體重</h3>
-        </div>
-        <button id="btn-close-health-modal" type="button" class="text-scholar-textMuted hover:text-scholar-navy p-1.5 rounded-lg">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <form id="form-health" class="space-y-4 pt-3.5">
-        <input type="hidden" id="input-health-id" />
-        <input type="hidden" id="input-health-period" value="晨起" />
-
-        <div>
-          <label class="block text-xs font-medium text-scholar-navy mb-1">測量日期</label>
-          <input type="date" id="input-health-date" required class="w-full px-3.5 py-2.5 text-sm bg-scholar-paper border border-scholar-border rounded-xl focus:outline-none focus:ring-2 focus:ring-scholar-gold/30 focus:border-scholar-gold transition text-scholar-navy" />
-        </div>
-
-        <div>
-          <label class="block text-xs font-medium text-scholar-navy mb-1.5">測量時段</label>
-          <div class="grid grid-cols-2 gap-2 bg-scholar-paper p-1 rounded-xl border border-scholar-border/60">
-            <button type="button" id="btn-period-morning" class="py-2 text-xs font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 bg-scholar-card text-scholar-navy shadow-xs border border-scholar-border/50">
-              <i data-lucide="sun" class="w-3.5 h-3.5 text-scholar-gold"></i>
-              <span>晨起</span>
-            </button>
-            <button type="button" id="btn-period-evening" class="py-2 text-xs font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 text-scholar-textMuted hover:text-scholar-navy">
-              <i data-lucide="moon" class="w-3.5 h-3.5 text-scholar-navy"></i>
-              <span>晚間</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-medium text-scholar-navy mb-1">收縮壓 (SYS)</label>
-            <input type="number" id="input-health-sys" required placeholder="例如：118" min="50" max="250" class="w-full px-3 py-2 text-sm bg-scholar-paper border border-scholar-border rounded-xl focus:outline-none focus:ring-2 focus:ring-scholar-gold/30 focus:border-scholar-gold transition text-scholar-navy" />
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-scholar-navy mb-1">舒張壓 (DIA)</label>
-            <input type="number" id="input-health-dia" required placeholder="例如：76" min="30" max="160" class="w-full px-3 py-2 text-sm bg-scholar-paper border border-scholar-border rounded-xl focus:outline-none focus:ring-2 focus:ring-scholar-gold/30 focus:border-scholar-gold transition text-scholar-navy" />
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-medium text-scholar-navy mb-1">體重 (kg)</label>
-            <input type="number" step="0.1" id="input-health-weight" placeholder="例如：65.5" min="20" max="250" class="w-full px-3 py-2 text-sm bg-scholar-paper border border-scholar-border rounded-xl focus:outline-none focus:ring-2 focus:ring-scholar-gold/30 focus:border-scholar-gold transition text-scholar-navy" />
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-scholar-navy mb-1">脈搏/心率 (BPM)</label>
-            <input type="number" id="input-health-pulse" placeholder="例如：72" min="30" max="200" class="w-full px-3 py-2 text-sm bg-scholar-paper border border-scholar-border rounded-xl focus:outline-none focus:ring-2 focus:ring-scholar-gold/30 focus:border-scholar-gold transition text-scholar-navy" />
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-xs font-medium text-scholar-navy mb-1">MEMO 備忘 (飲食、運動、心情等)</label>
-          <textarea id="input-health-memo" rows="2" placeholder="例如：晨跑後測量、睡眠充足、精神飽滿..." class="w-full px-3 py-2 text-sm bg-scholar-paper border border-scholar-border rounded-xl focus:outline-none focus:ring-2 focus:ring-scholar-gold/30 focus:border-scholar-gold transition text-scholar-navy resize-none"></textarea>
-        </div>
-
-        <div class="pt-2 pb-1 flex items-center justify-end gap-2">
-          <button id="btn-cancel-health" type="button" class="px-4 py-2 text-sm text-scholar-textMuted hover:bg-scholar-hover rounded-xl transition">取消</button>
-          <button type="submit" class="px-5 py-2 text-sm font-medium bg-scholar-navy text-scholar-paper rounded-xl hover:bg-scholar-navy/90 transition shadow-sm">儲存紀錄</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- 5. 新增/編輯習慣彈窗 -->
-  <div id="modal-habit" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-scholar-navy/60 backdrop-blur-sm hidden">
-    <div class="bg-scholar-card rounded-t-3xl sm:rounded-2xl border border-scholar-border shadow-2xl w-full max-w-md p-5 sm:p-6 max-h-[92vh] overflow-y-auto">
-      <div class="flex items-center justify-between pb-3 border-b border-scholar-border">
-        <h3 id="modal-habit-title" class="text-base font-semibold text-scholar-navy">建立新習慣</h3>
-        <button id="btn-close-habit-modal" type="button" class="text-scholar-textMuted hover:text-scholar-navy p-1.5 rounded-lg">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <form id="form-habit" class="space-y-3.5 pt-3.5">
-        <input type="hidden" id="input-habit-id" />
-
-        <div>
-          <label class="block text-xs font-medium text-scholar-navy mb-1">習慣名稱</label>
-          <input type="text" id="input-habit-title" required placeholder="例如：每日超慢跑 20 分鐘" class="w-full px-3.5 py-2 text-sm bg-scholar-paper border border-scholar-border rounded-xl focus:outline-none focus:ring-2 focus:ring-scholar-gold/30 focus:border-scholar-gold transition text-scholar-navy" />
-        </div>
-
-        <div>
-          <label class="block text-xs font-medium text-scholar-navy mb-1">簡述或動機 (選填)</label>
-          <input type="text" id="input-habit-desc" placeholder="例如：保持身體活力與心肺耐力" class="w-full px-3.5 py-2 text-sm bg-scholar-paper border border-scholar-border rounded-xl focus:outline-none focus:ring-2 focus:ring-scholar-gold/30 focus:border-scholar-gold transition text-scholar-navy" />
-        </div>
-
-        <div>
-          <div class="flex items-center justify-between mb-1">
-            <label class="text-xs font-medium text-scholar-navy">習慣分類</label>
-            <button id="btn-trigger-quick-category" type="button" class="text-xs text-scholar-gold hover:text-scholar-navy font-semibold flex items-center gap-1 transition">
-              <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
-              <span>+ 新增自訂分類</span>
-            </button>
-          </div>
-          <select id="select-habit-category" class="w-full px-3.5 py-2 text-sm bg-scholar-paper border border-scholar-border rounded-xl focus:outline-none focus:ring-2 focus:ring-scholar-gold/30 focus:border-scholar-gold transition text-scholar-navy"></select>
-        </div>
-
-        <div>
-          <label class="block text-xs font-medium text-scholar-navy mb-1.5">代表圖標</label>
-          <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1" id="icon-selector-container"></div>
-          <input type="hidden" id="input-habit-icon" value="check" />
-        </div>
-
-        <div class="pt-2 pb-1 flex items-center justify-end gap-2">
-          <button id="btn-cancel-habit" type="button" class="px-4 py-2 text-sm text-scholar-textMuted hover:bg-scholar-hover rounded-xl transition">取消</button>
-          <button type="submit" class="px-5 py-2 text-sm font-medium bg-scholar-navy text-scholar-paper rounded-xl hover:bg-scholar-navy/90 transition shadow-sm">儲存</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- 6. 分類管理清單彈窗 -->
-  <div id="modal-category-manager" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-scholar-navy/60 backdrop-blur-sm hidden">
-    <div class="bg-scholar-card rounded-t-3xl sm:rounded-2xl border border-scholar-border shadow-2xl w-full max-w-lg p-5 sm:p-6 max-h-[90vh] flex flex-col">
-      <div class="flex items-center justify-between pb-3 border-b border-scholar-border">
-        <div class="flex items-center gap-2">
-          <i data-lucide="tag" class="w-5 h-5 text-scholar-gold"></i>
-          <h3 class="text-base font-semibold text-scholar-navy">習慣分類管理</h3>
-        </div>
-        <button id="btn-close-category-manager" type="button" class="text-scholar-textMuted hover:text-scholar-navy p-1.5 rounded-lg">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <div class="flex-1 overflow-y-auto py-3.5 space-y-2.5" id="category-manager-list"></div>
-
-      <div class="pt-3 border-t border-scholar-border flex justify-between items-center">
-        <span class="text-xs text-scholar-textMuted">管理分類與色票</span>
-        <button id="btn-open-create-category" type="button" class="px-3.5 py-1.5 text-xs font-semibold bg-scholar-gold text-scholar-navy rounded-xl hover:bg-scholar-gold/90 transition flex items-center gap-1.5 shadow-xs">
-          <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-          <span>新增分類</span>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 7. 新增/編輯分類小彈窗 -->
-  <div id="modal-category-edit" class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-scholar-navy/70 backdrop-blur-sm hidden">
-    <div class="bg-scholar-card rounded-2xl border border-scholar-border shadow-2xl w-full max-w-sm p-5">
-      <div class="flex items-center justify-between pb-2 border-b border-scholar-border mb-3">
-        <h4 id="category-edit-title" class="text-sm font-semibold text-scholar-navy">建立自訂分類</h4>
-        <button id="btn-close-category-edit" type="button" class="text-scholar-textMuted hover:text-scholar-navy p-1 rounded-lg">
-          <i data-lucide="x" class="w-4 h-4"></i>
-        </button>
-      </div>
-
-      <form id="form-category-edit" class="space-y-4">
-        <input type="hidden" id="input-category-id" />
-        <div>
-          <label class="block text-xs font-medium text-scholar-navy mb-1">分類名稱</label>
-          <input type="text" id="input-category-name" required placeholder="例如：閱讀專注、規律作息" class="w-full px-3 py-2 text-sm bg-scholar-paper border border-scholar-border rounded-xl focus:outline-none focus:ring-2 focus:ring-scholar-gold/30 focus:border-scholar-gold transition text-scholar-navy" />
-        </div>
-
-        <div>
-          <label class="block text-xs font-medium text-scholar-navy mb-1.5">學者古典色票</label>
-          <div class="grid grid-cols-6 gap-2" id="category-color-palette"></div>
-          <input type="hidden" id="input-category-color" value="#D3AC2B" />
-        </div>
-
-        <div class="pt-2 flex items-center justify-end gap-2">
-          <button id="btn-cancel-category-edit" type="button" class="px-3 py-1.5 text-xs text-scholar-textMuted hover:bg-scholar-hover rounded-lg transition">取消</button>
-          <button type="submit" class="px-4 py-1.5 text-xs font-medium bg-scholar-navy text-scholar-paper rounded-lg hover:bg-scholar-navy/90 transition">確定儲存</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- 8. 資料備份與還原彈窗 -->
-  <div id="modal-data" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-scholar-navy/60 backdrop-blur-sm hidden">
-    <div class="bg-scholar-card rounded-2xl border border-scholar-border shadow-2xl w-full max-w-md p-6">
-      <div class="flex items-center justify-between pb-3 border-b border-scholar-border">
-        <h3 class="text-base font-semibold text-scholar-navy">資料管理與雲端備份</h3>
-        <button id="btn-close-data-modal" type="button" class="text-scholar-textMuted hover:text-scholar-navy p-1 rounded-lg">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <div class="space-y-4 pt-4 text-xs text-scholar-textMuted leading-relaxed">
-        <p>您的所有紀錄正透過 Google Firebase 即時同步（含習慣打卡、血壓體重、藥品照片、排程藥箱母檔與服藥紀錄）。建議定期下載 JSON 檔案備份。</p>
-        
-        <div class="p-3 bg-scholar-paper rounded-xl border border-scholar-border space-y-3">
-          <div class="flex items-center justify-between">
-            <span class="font-medium text-scholar-navy">匯出完整備份 (JSON)</span>
-            <button id="btn-export-json" type="button" class="px-3 py-1.5 bg-scholar-card border border-scholar-border rounded-lg font-medium text-scholar-navy hover:bg-scholar-hover transition shadow-xs flex items-center gap-1">
-              <i data-lucide="download" class="w-3.5 h-3.5"></i>
-              <span>下載檔案</span>
-            </button>
-          </div>
-          <div class="border-t border-scholar-border/70 pt-3 flex items-center justify-between">
-            <span class="font-medium text-scholar-navy">匯入備份檔案 (上傳至雲端)</span>
-            <label class="px-3 py-1.5 bg-scholar-card border border-scholar-border rounded-lg font-medium text-scholar-navy hover:bg-scholar-hover transition shadow-xs cursor-pointer flex items-center gap-1">
-              <i data-lucide="upload" class="w-3.5 h-3.5"></i>
-              <span>選擇檔案</span>
-              <input type="file" id="input-import-json" accept=".json" class="hidden" />
-            </label>
-          </div>
-        </div>
-
-        <div class="pt-2 border-t border-scholar-border flex justify-between items-center">
-          <button id="btn-reset-demo" type="button" class="text-[11px] text-scholar-navy hover:underline">載入範例生活習慣</button>
-          <span class="text-[11px] text-scholar-textMuted">日常軌跡 v2.5 (照片支援版)</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // ==================== FIREBASE 核心初始化 ====================
-    const firebaseConfig = {
-      apiKey: "AIzaSyDrTGccqgJm2rtqKzx4teLHuPYMGi-hlYQ",
-      authDomain: "habit-tracker-tony.firebaseapp.com",
-      projectId: "habit-tracker-tony",
-      storageBucket: "habit-tracker-tony.firebasestorage.app",
-      messagingSenderId: "872039917946",
-      appId: "1:872039917946:web:cd202065cddc142a094ec3",
-      measurementId: "G-CYNLKFF59N"
-    };
-
-    let db = null;
-    let syncDocRef = null;
-    try {
-      firebase.initializeApp(firebaseConfig);
-      db = firebase.firestore();
-      syncDocRef = db.collection('user_data').doc('tony_main');
-    } catch (e) {
-      console.warn('Firebase 初始化提示：', e);
-    }
-
-    function setSyncStatus(status, text) {
-      const dot = document.getElementById('sync-status-dot');
-      const label = document.getElementById('sync-status-text');
-      if (!dot || !label) return;
-
-      if (status === 'synced') {
-        dot.className = 'w-1.5 h-1.5 rounded-full bg-scholar-gold animate-pulse';
-        label.innerText = text || '已同步雲端';
-      } else if (status === 'syncing') {
-        dot.className = 'w-1.5 h-1.5 rounded-full bg-scholar-silver animate-ping';
-        label.innerText = text || '同步中...';
-      } else {
-        dot.className = 'w-1.5 h-1.5 rounded-full bg-scholar-silver';
-        label.innerText = text || '離線模式';
-      }
-    }
-
-    // ==================== 學者古典色票 ====================
-    const PALETTE = [
-      { color: '#D3AC2B', name: '拋光古金' },
-      { color: '#333D51', name: '海軍深藍' },
-      { color: '#7E9A7B', name: '古典草綠' },
-      { color: '#A95E46', name: '皮革磚褐' },
-      { color: '#6A89A7', name: '古墨灰藍' },
-      { color: '#8E7C93', name: '古籍紫藤' }
-    ];
-
-    const AVAILABLE_ICONS = ['check', 'book-open', 'footprints', 'cup-soda', 'moon', 'dumbbell', 'heart', 'feather', 'sun', 'camera', 'activity', 'pill'];
-
-    const INITIAL_CATEGORIES = [
-      { id: 'cat-health', name: '健康生活', color: '#D3AC2B' },
-      { id: 'cat-mind', name: '閱讀專注', color: '#333D51' },
-      { id: 'cat-rest', name: '規律作息', color: '#6A89A7' }
-    ];
-
-    const INITIAL_HABITS = [
-      { id: 'h-1', title: '每日超慢跑 20-30 分鐘', desc: '低心率有氧，喚醒身體活力', categoryId: 'cat-health', icon: 'footprints', createdAt: '2026-01-01' },
-      { id: 'h-2', title: '閱讀或文字書寫 30 分鐘', desc: '保持專注力與思考餘裕', categoryId: 'cat-mind', icon: 'book-open', createdAt: '2026-01-01' },
-      { id: 'h-3', title: '23:15 放下手機與放鬆備睡', desc: '遠離藍光刺激，維持規律作息', categoryId: 'cat-rest', icon: 'moon', createdAt: '2026-01-01' }
-    ];
-
-    const INITIAL_MEDICATIONS = [
-      { id: 'med-1', name: '血壓常用藥', dosage: '1/2 顆', freqType: 'daily', weekdays: [1,2,3,4,5,6,7], timing: '晨起', notes: '晨起空腹溫水服用', photo: '' },
-      { id: 'med-2', name: '骨質/免疫週服藥', dosage: '1 錠', freqType: 'weekly_custom', weekdays: [1, 3, 5], timing: '早飯後', notes: '每週三次(一、三、五)隨餐', photo: '' }
-    ];
-
-    let state = {
-      activeWorkspace: 'habit',
-      categories: [],
-      habits: [],
-      logs: {},
-      healthLogs: [],
-      medications: [],
-      medLogs: [],
-      activeCategory: 'all',
-      gridOffsetDays: 0,
-      activeHealthTab: 'bp',
-      editingMedWeekdays: [1, 3, 5]
-    };
-
-    function getStandardDateKey(dateObj = new Date()) {
-      const year = dateObj.getFullYear();
-      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-      const day = String(dateObj.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    }
-
-    function formatDateDisplay(dateStr) {
-      const parts = dateStr.split('-');
-      const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-      const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
-      return `${parts[0]} 年 ${parseInt(parts[1], 10)} 月 ${parseInt(parts[2], 10)} 日 (週${weekDays[d.getDay()]})`;
-    }
-
-    function getIsoDayOfWeek(dateStr) {
-      const parts = dateStr.split('-');
-      const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-      const day = d.getDay();
-      return day === 0 ? 7 : day;
-    }
-
-    function getWeekdayLabel(dayNum) {
-      const map = { 1: '一', 2: '二', 3: '三', 4: '四', 5: '五', 6: '六', 7: '日' };
-      return map[dayNum] || '';
-    }
-
-    function getBloodPressureEvaluation(sys, dia) {
-      if (!sys || !dia) return { label: '未評估', colorClass: 'bg-scholar-paper text-scholar-textMuted border border-scholar-border' };
-      if (sys < 120 && dia < 80) {
-        return { label: '理想標準', colorClass: 'bg-scholar-gold/15 text-scholar-navy border border-scholar-gold/30 font-medium' };
-      } else if (sys <= 129 && dia < 80) {
-        return { label: '正常偏高', colorClass: 'bg-scholar-paper text-scholar-navy border border-scholar-border' };
-      } else if ((sys >= 130 && sys <= 139) || (dia >= 80 && dia <= 89)) {
-        return { label: '第一期高壓', colorClass: 'bg-scholar-silver/40 text-scholar-navy border border-scholar-silver' };
-      } else {
-        return { label: '偏高留意', colorClass: 'bg-scholar-navy text-scholar-paper font-bold' };
-      }
-    }
-
-    function compressImageFile(file, maxWidth = 300, maxHeight = 300, quality = 0.7) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
-          const img = new Image();
-          img.src = event.target.result;
-          img.onload = () => {
-            let width = img.width;
-            let height = img.height;
-
-            if (width > height) {
-              if (width > maxWidth) {
-                height = Math.round((height * maxWidth) / width);
-                width = maxWidth;
-              }
-            } else {
-              if (height > maxHeight) {
-                width = Math.round((width * maxHeight) / height);
-                height = maxHeight;
-              }
-            }
-
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, width, height);
-
-            const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
-            resolve(compressedBase64);
-          };
-          img.onerror = (err) => reject(err);
-        };
-        reader.onerror = (err) => reject(err);
-      });
-    }
-
-    window.showImageLightbox = function(src, caption = '') {
-      if (!src) return;
-      const modal = document.getElementById('modal-image-lightbox');
-      const img = document.getElementById('lightbox-img');
-      const cap = document.getElementById('lightbox-caption');
-      img.src = src;
-      cap.innerText = caption;
-      modal.classList.remove('hidden');
-    };
-
-    window.closeImageLightbox = function() {
-      document.getElementById('modal-image-lightbox').classList.add('hidden');
-    };
-
-    function loadStateFromLocal() {
-      try {
-        const catData = localStorage.getItem('routine_categories');
-        const habitData = localStorage.getItem('routine_habits');
-        const logData = localStorage.getItem('routine_logs');
-        const healthData = localStorage.getItem('routine_health_logs');
-        const medData = localStorage.getItem('routine_medications');
-        const medLogData = localStorage.getItem('routine_med_logs');
-
-        state.categories = catData ? JSON.parse(catData) : INITIAL_CATEGORIES;
-        state.habits = habitData ? JSON.parse(habitData) : INITIAL_HABITS;
-        state.logs = logData ? JSON.parse(logData) : {};
-        state.healthLogs = healthData ? JSON.parse(healthData) : [];
-        state.medications = medData ? JSON.parse(medData) : INITIAL_MEDICATIONS;
-        state.medLogs = medLogData ? JSON.parse(medLogData) : [];
-      } catch (e) {
-        state.categories = INITIAL_CATEGORIES;
-        state.habits = INITIAL_HABITS;
-        state.logs = {};
-        state.healthLogs = [];
-        state.medications = INITIAL_MEDICATIONS;
-        state.medLogs = [];
-      }
-    }
-
-    function saveState(skipCloud = false) {
-      localStorage.setItem('routine_categories', JSON.stringify(state.categories));
-      localStorage.setItem('routine_habits', JSON.stringify(state.habits));
-      localStorage.setItem('routine_logs', JSON.stringify(state.logs));
-      localStorage.setItem('routine_health_logs', JSON.stringify(state.healthLogs));
-      localStorage.setItem('routine_medications', JSON.stringify(state.medications));
-      localStorage.setItem('routine_med_logs', JSON.stringify(state.medLogs));
-
-      if (!skipCloud && syncDocRef) {
-        setSyncStatus('syncing', '正在儲存...');
-        syncDocRef.set({
-          categories: state.categories,
-          habits: state.habits,
-          logs: state.logs,
-          healthLogs: state.healthLogs,
-          medications: state.medications,
-          medLogs: state.medLogs,
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true })
-        .then(() => {
-          setSyncStatus('synced', '已同步雲端');
-        })
-        .catch(err => {
-          console.warn('雲端同步失敗：', err);
-          setSyncStatus('error', '本機儲存');
-        });
-      }
-    }
-
-    function setupFirebaseListener() {
-      if (!syncDocRef) return;
-      setSyncStatus('syncing', '連線雲端中...');
-
-      syncDocRef.onSnapshot((doc) => {
-        if (doc.exists) {
-          const data = doc.data();
-          state.categories = data.categories || INITIAL_CATEGORIES;
-          state.habits = data.habits || INITIAL_HABITS;
-          state.logs = data.logs || {};
-          state.healthLogs = data.healthLogs || [];
-          state.medications = data.medications || INITIAL_MEDICATIONS;
-          state.medLogs = data.medLogs || [];
-
-          saveState(true);
-          renderApp();
-          setSyncStatus('synced', '已同步雲端');
-        } else {
-          saveState(false);
-        }
-      }, (err) => {
-        console.warn('Firebase 監聽錯誤：', err);
-        setSyncStatus('error', '本機模式');
-      });
-    }
-
-    function calculateHabitStreak(habitId) {
-      let streak = 0;
-      let checkDate = new Date();
-      const todayKey = getStandardDateKey(checkDate);
-
-      if (state.logs[todayKey] && state.logs[todayKey][habitId]) {
-        streak++;
-        checkDate.setDate(checkDate.getDate() - 1);
-      } else {
-        checkDate.setDate(checkDate.getDate() - 1);
-      }
-
-      while (true) {
-        const key = getStandardDateKey(checkDate);
-        if (state.logs[key] && state.logs[key][habitId]) {
-          streak++;
-          checkDate.setDate(checkDate.getDate() - 1);
-        } else {
-          break;
-        }
-      }
-      return streak;
-    }
-
-    function calculateOverallMaxStreak() {
-      if (state.habits.length === 0) return 0;
-      let max = 0;
-      state.habits.forEach(h => {
-        const s = calculateHabitStreak(h.id);
-        if (s > max) max = s;
-      });
-      return max;
-    }
-
-    window.toggleHabitLog = function(habitId, dateKey) {
-      if (!state.logs[dateKey]) {
-        state.logs[dateKey] = {};
-      }
-
-      const wasDone = !!state.logs[dateKey][habitId];
-      if (wasDone) {
-        delete state.logs[dateKey][habitId];
-      } else {
-        state.logs[dateKey][habitId] = true;
-      }
-
-      if (!wasDone && dateKey === getStandardDateKey() && typeof confetti === 'function') {
-        confetti({
-          particleCount: 28,
-          spread: 50,
-          origin: { y: 0.8 },
-          colors: ['#D3AC2B', '#333D51', '#CBD0D8', '#F4F3EA']
-        });
-      }
-
-      saveState();
-      renderApp();
-    };
-
-    function switchWorkspace(workspace) {
-      state.activeWorkspace = workspace;
-      const tabHabit = document.getElementById('main-tab-habit');
-      const tabHealth = document.getElementById('main-tab-health');
-      const wsHabit = document.getElementById('workspace-habit');
-      const wsHealth = document.getElementById('workspace-health');
-      const headerHabit = document.getElementById('header-actions-habit');
-      const headerHealth = document.getElementById('header-actions-health');
-
-      if (workspace === 'habit') {
-        tabHabit.className = 'flex-1 sm:flex-initial px-6 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 bg-scholar-card text-scholar-navy shadow-xs border border-scholar-border/50';
-        tabHealth.className = 'flex-1 sm:flex-initial px-6 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all flex items-center justify-center gap-2 text-scholar-textMuted hover:text-scholar-navy';
-        wsHabit.classList.remove('hidden');
-        wsHealth.classList.add('hidden');
-        headerHabit.classList.remove('hidden');
-        headerHabit.classList.add('flex');
-        headerHealth.classList.add('hidden');
-        headerHealth.classList.remove('flex');
-      } else {
-        tabHealth.className = 'flex-1 sm:flex-initial px-6 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 bg-scholar-card text-scholar-navy shadow-xs border border-scholar-border/50';
-        tabHabit.className = 'flex-1 sm:flex-initial px-6 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all flex items-center justify-center gap-2 text-scholar-textMuted hover:text-scholar-navy';
-        wsHealth.classList.remove('hidden');
-        wsHabit.classList.add('hidden');
-        headerHealth.classList.remove('hidden');
-        headerHealth.classList.add('flex');
-        headerHabit.classList.add('hidden');
-        headerHabit.classList.remove('flex');
-      }
-    }
-
-    function renderApp() {
-      renderCategoryFilters();
-      renderTodayHabits();
-      renderBulletGrid();
-      renderHealthLogs();
-      renderMedLogs();
-      renderHeatmap();
-      renderRankings();
-      renderStatsOverview();
-      renderCategoryManagerList();
-      renderMedManagerList();
-      populateHabitCategorySelect();
-
-      lucide.createIcons();
-    }
-
-    function renderStatsOverview() {
-      const today = getStandardDateKey();
-      const todayLogs = state.logs[today] || {};
-      const total = state.habits.length;
-      let completed = 0;
-
-      state.habits.forEach(h => {
-        if (todayLogs[h.id]) completed++;
-      });
-
-      const pct = total === 0 ? 0 : Math.round((completed / total) * 100);
-      document.getElementById('stat-progress-pct').innerText = `${pct}%`;
-      document.getElementById('stat-completed-count').innerText = `${completed} / ${total} 已完成`;
-      document.getElementById('stat-progress-bar').style.width = `${pct}%`;
-      
-      const longest = calculateOverallMaxStreak();
-      document.getElementById('stat-longest-streak').innerText = longest;
-
-      if (state.healthLogs && state.healthLogs.length > 0) {
-        const latest = [...state.healthLogs].sort((a, b) => (b.date + (b.period === '晚間' ? '2' : '1')).localeCompare(a.date + (a.period === '晚間' ? '2' : '1')))[0];
-        document.getElementById('stat-bp-val').innerText = `${latest.sys}/${latest.dia}`;
-        document.getElementById('stat-weight-val').innerText = latest.weight ? latest.weight : '--';
-        
-        const evalRes = getBloodPressureEvaluation(latest.sys, latest.dia);
-        const tagEl = document.getElementById('stat-bp-tag');
-        tagEl.innerText = `${latest.period} · ${evalRes.label}`;
-        tagEl.className = `px-2 py-0.5 rounded text-[10px] ${evalRes.colorClass}`;
-      } else {
-        document.getElementById('stat-bp-val').innerText = '--/--';
-        document.getElementById('stat-weight-val').innerText = '--';
-        document.getElementById('stat-bp-tag').innerText = '尚未記錄';
-      }
-
-      const todayMedLogs = (state.medLogs || []).filter(l => l.date === today);
-      document.getElementById('stat-today-med-count').innerText = todayMedLogs.length;
-      const descEl = document.getElementById('stat-today-med-desc');
-      if (todayMedLogs.length > 0) {
-        const periods = todayMedLogs.map(l => l.period).join('、');
-        descEl.innerText = `今日已於「${periods}」時段完成服藥。`;
-      } else {
-        descEl.innerText = '按時用藥，保持身體恆定節奏。';
-      }
-    }
-
-    function renderCategoryFilters() {
-      const container = document.getElementById('category-filter-bar');
-      container.innerHTML = '';
-
-      const allBtn = document.createElement('button');
-      allBtn.className = `px-3.5 py-1.5 rounded-full text-xs font-medium transition whitespace-nowrap shrink-0 ${
-        state.activeCategory === 'all'
-          ? 'bg-scholar-navy text-scholar-paper shadow-xs'
-          : 'bg-scholar-hover text-scholar-navy hover:bg-scholar-silver/40'
-      }`;
-      allBtn.innerText = '全部習慣';
-      allBtn.onclick = () => {
-        state.activeCategory = 'all';
-        renderApp();
-      };
-      container.appendChild(allBtn);
-
-      state.categories.forEach(cat => {
-        const btn = document.createElement('button');
-        const isActive = state.activeCategory === cat.id;
-        btn.className = `px-3.5 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-          isActive
-            ? 'bg-scholar-navy text-scholar-paper shadow-xs'
-            : 'bg-scholar-card border border-scholar-border text-scholar-navy hover:bg-scholar-hover'
-        }`;
-        btn.innerHTML = `
-          <span class="w-2 h-2 rounded-full" style="background-color: ${cat.color}"></span>
-          <span>${cat.name}</span>
-        `;
-        btn.onclick = () => {
-          state.activeCategory = cat.id;
-          renderApp();
-        };
-        container.appendChild(btn);
-      });
-    }
-
-    function renderTodayHabits() {
-      const container = document.getElementById('today-habits-container');
-      const emptyState = document.getElementById('today-empty-state');
-      container.innerHTML = '';
-
-      const filtered = state.habits.filter(h => state.activeCategory === 'all' || h.categoryId === state.activeCategory);
-
-      if (filtered.length === 0) {
-        emptyState.classList.remove('hidden');
-        return;
-      }
-      emptyState.classList.add('hidden');
-
-      const today = getStandardDateKey();
-      const todayLogs = state.logs[today] || {};
-
-      filtered.forEach(habit => {
-        const isDone = !!todayLogs[habit.id];
-        const category = state.categories.find(c => c.id === habit.categoryId) || { name: '日常', color: '#D3AC2B' };
-        const streak = calculateHabitStreak(habit.id);
-
-        const card = document.createElement('div');
-        card.className = `group bg-scholar-card rounded-2xl p-3.5 sm:p-4 border transition-all duration-300 shadow-xs flex items-center justify-between ${
-          isDone ? 'border-scholar-gold/50 bg-scholar-gold/5' : 'border-scholar-border hover:border-scholar-navy/30'
-        }`;
-
-        card.innerHTML = `
-          <div class="flex items-center gap-3 min-w-0">
-            <button type="button" class="btn-check-habit w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all shrink-0 ${
-              isDone
-                ? 'bg-scholar-gold text-scholar-navy font-bold shadow-xs'
-                : 'bg-scholar-paper border border-scholar-border text-scholar-silver hover:border-scholar-navy/40 hover:text-scholar-navy'
-            }" data-id="${habit.id}">
-              <i data-lucide="${isDone ? 'check' : habit.icon || 'circle'}" class="w-4 h-4 sm:w-5 sm:h-5 pointer-events-none"></i>
-            </button>
-            <div class="truncate">
-              <div class="flex items-center gap-1.5">
-                <h4 class="text-xs sm:text-sm font-semibold truncate ${isDone ? 'line-through text-scholar-textMuted' : 'text-scholar-navy'}">${habit.title}</h4>
-                <span class="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 border" style="background-color: ${category.color}15; color: ${category.color}; border-color: ${category.color}30">
-                  ${category.name}
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-dracula-green/10 text-dracula-green border border-dracula-green/30">
+                    ● 三重把關：壓降 ≤ 3% ｜ 線徑 ≥ 14mm² ｜ 載流量不超載 (表16-6 3條基準)
                 </span>
-              </div>
-              <p class="text-[11px] text-scholar-textMuted truncate mt-0.5">${habit.desc || '保持日常節奏'}</p>
             </div>
-          </div>
+        </header>
 
-          <div class="flex items-center gap-1.5 pl-2 shrink-0">
-            <span class="text-[10px] sm:text-[11px] font-medium px-2 py-0.5 bg-scholar-paper border border-scholar-border text-scholar-navy rounded-lg flex items-center gap-1" title="連續天數">
-              <i data-lucide="flame" class="w-3.5 h-3.5 text-scholar-gold"></i>
-              <span>${streak}天</span>
-            </span>
-            <button onclick="openEditHabitModal('${habit.id}')" type="button" class="p-1 text-scholar-textMuted hover:text-scholar-navy rounded-lg transition" title="編輯習慣">
-              <i data-lucide="more-horizontal" class="w-4 h-4"></i>
-            </button>
-          </div>
-        `;
+        <!-- Main Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Column: Inputs Form -->
+            <div class="lg:col-span-5 space-y-5">
+                <div class="bg-dracula-current/40 border border-dracula-current rounded-2xl p-5 shadow-xl space-y-5">
+                    <h2 class="text-base font-semibold text-dracula-fg border-b border-dracula-current pb-2 flex items-center justify-between">
+                        <span>參數設定</span>
+                        <button type="button" id="btnReset" class="text-xs text-dracula-comment hover:text-dracula-pink transition-colors">
+                            清空欄位
+                        </button>
+                    </h2>
 
-        card.querySelector('.btn-check-habit').addEventListener('click', (e) => {
-          e.stopPropagation();
-          toggleHabitLog(habit.id, today);
-        });
+                    <!-- 1. 供電系統 -->
+                    <div>
+                        <label class="block text-xs font-semibold text-dracula-fg uppercase tracking-wider mb-2">
+                            1. 供電系統類別
+                        </label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button type="button" data-sys="1p3w" class="sys-btn py-2.5 px-3 rounded-xl border text-sm font-semibold transition-all border-dracula-purple bg-dracula-purple/20 text-dracula-purple shadow-sm">
+                                1φ3w
+                            </button>
+                            <button type="button" data-sys="3p3w" class="sys-btn py-2.5 px-3 rounded-xl border text-sm font-semibold transition-all border-dracula-current bg-dracula-bg/80 text-dracula-comment hover:border-dracula-purple/50">
+                                3φ3w
+                            </button>
+                            <button type="button" data-sys="3p4w" class="sys-btn py-2.5 px-3 rounded-xl border text-sm font-semibold transition-all border-dracula-current bg-dracula-bg/80 text-dracula-comment hover:border-dracula-purple/50">
+                                3φ4w
+                            </button>
+                        </div>
+                    </div>
 
-        container.appendChild(card);
-      });
-    }
+                    <!-- 2. 負載 (VA) -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-semibold text-dracula-fg uppercase tracking-wider">
+                                2. 負載 (VA)
+                            </label>
+                            <span id="vaCalcHint" class="text-[11px] text-dracula-cyan font-mono">I = VA / V</span>
+                        </div>
+                        <div class="relative">
+                            <input type="number" id="inputVA" placeholder="請輸入負載容量" step="any" min="0" 
+                                class="w-full bg-dracula-bg border border-dracula-current rounded-xl px-4 py-2.5 text-dracula-fg font-mono text-sm focus:outline-none focus:border-dracula-purple transition-colors placeholder:text-dracula-comment/60">
+                            <span class="absolute right-4 top-2.5 text-xs text-dracula-comment font-mono">VA</span>
+                        </div>
+                    </div>
 
-    function renderBulletGrid() {
-      const container = document.getElementById('bullet-grid-table-container');
-      const badge = document.getElementById('grid-date-range-badge');
-      container.innerHTML = '';
+                    <!-- 3. 線路電壓 (V) -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-semibold text-dracula-fg uppercase tracking-wider">
+                                3. 線路電壓 (V)
+                            </label>
+                            <span id="voltageModeBadge" class="text-[11px] px-2 py-0.5 rounded font-mono font-medium bg-dracula-bg text-dracula-comment border border-dracula-current">
+                                待輸入電壓
+                            </span>
+                        </div>
+                        <div class="relative">
+                            <input type="number" id="inputVoltage" placeholder="例如: 110, 220, 380" step="any" min="1" 
+                                class="w-full bg-dracula-bg border border-dracula-current rounded-xl px-4 py-2.5 text-dracula-fg font-mono text-sm focus:outline-none focus:border-dracula-purple transition-colors placeholder:text-dracula-comment/60">
+                            <span class="absolute right-4 top-2.5 text-xs text-dracula-comment font-mono">V</span>
+                        </div>
+                    </div>
 
-      const todayKey = getStandardDateKey();
-      const dates = [];
+                    <!-- 4. 電流 (A) -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-semibold text-dracula-fg uppercase tracking-wider">
+                                4. 電流 (A)
+                            </label>
+                            <span id="ampacityCheckHint" class="text-[11px] text-dracula-comment font-mono">連續安全電流: —</span>
+                        </div>
+                        <div class="relative">
+                            <input type="number" id="inputCurrent" placeholder="請輸入或自動由上方推算" step="any" min="0" 
+                                class="w-full bg-dracula-bg border border-dracula-current rounded-xl px-4 py-2.5 text-dracula-fg font-mono text-sm focus:outline-none focus:border-dracula-purple transition-colors placeholder:text-dracula-comment/60">
+                            <span class="absolute right-4 top-2.5 text-xs text-dracula-comment font-mono">A</span>
+                        </div>
+                    </div>
 
-      for (let i = 13; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - state.gridOffsetDays - i);
-        const key = getStandardDateKey(d);
-        dates.push({
-          key,
-          label: `${d.getMonth() + 1}/${d.getDate()}`,
-          isToday: key === todayKey
-        });
-      }
+                    <!-- 5. 單程長度 (m) -->
+                    <div>
+                        <label class="block text-xs font-semibold text-dracula-fg uppercase tracking-wider mb-1.5">
+                            5. 線路單程長度 (m)
+                        </label>
+                        <div class="relative">
+                            <input type="number" id="inputLength" placeholder="請輸入配線距離 (公尺)" step="any" min="0" 
+                                class="w-full bg-dracula-bg border border-dracula-current rounded-xl px-4 py-2.5 text-dracula-fg font-mono text-sm focus:outline-none focus:border-dracula-purple transition-colors placeholder:text-dracula-comment/60">
+                            <span class="absolute right-4 top-2.5 text-xs text-dracula-comment font-mono">m</span>
+                        </div>
+                    </div>
 
-      if (badge && dates.length > 0) {
-        badge.innerText = `${dates[0].key} ~ ${dates[dates.length - 1].key}`;
-      }
+                    <!-- 6. 導線規格 (mm²) -->
+                    <div>
+                        <label class="block text-xs font-semibold text-dracula-fg uppercase tracking-wider mb-1.5">
+                            6. 導線規格 (mm²) - 表16-6 銅導線 (90°C)
+                        </label>
+                        <select id="selectWireSize" 
+                            class="w-full bg-dracula-bg border border-dracula-current rounded-xl px-4 py-2.5 text-dracula-fg font-mono text-sm focus:outline-none focus:border-dracula-purple transition-colors">
+                            <option value="2">2.0 單 (未達法規標準 / 28A)</option>
+                            <option value="3.5">3.5 mm² (未達法規標準 / 30A)</option>
+                            <option value="5.5">5.5 mm² (未達法規標準 / 39A)</option>
+                            <option value="8">8 mm² (未達法規標準 / 51A)</option>
+                            <option value="14" selected>14 mm² (法定基準 / 74A)</option>
+                            <option value="22">22 mm² (93A)</option>
+                            <option value="30">30 mm² (116A)</option>
+                            <option value="38">38 mm² (130A)</option>
+                            <option value="50">50 mm² (155A)</option>
+                            <option value="60">60 mm² (176A)</option>
+                            <option value="80">80 mm² (208A)</option>
+                            <option value="100">100 mm² (242A)</option>
+                        </select>
+                        
+                        <!-- 對齊後的三欄對稱網格 (Dracula 配色) -->
+                        <div class="mt-2 p-2.5 bg-dracula-bg border border-dracula-current rounded-xl">
+                            <div class="grid grid-cols-4 text-center divide-x divide-dracula-current font-mono">
+                                <div class="px-1">
+                                    <div class="text-[10px] text-dracula-comment mb-0.5">管內容許(3條)</div>
+                                    <div id="paramAmpacity" class="text-xs font-bold text-dracula-yellow">74 A</div>
+                                </div>
+                                <div class="px-1">
+                                    <div class="text-[10px] text-dracula-comment mb-0.5">r(20°C) 壓降</div>
+                                    <div id="paramR20" class="text-xs font-bold text-dracula-cyan">1.3 Ω/km</div>
+                                </div>
+                                <div class="px-1">
+                                    <div class="text-[10px] text-dracula-comment mb-0.5">r(90°C) 線損</div>
+                                    <div id="paramR90" class="text-xs font-bold text-dracula-orange">1.6575 Ω/km</div>
+                                </div>
+                                <div class="px-1">
+                                    <div class="text-[10px] text-dracula-comment mb-0.5">電抗 x</div>
+                                    <div id="paramX" class="text-xs font-bold text-dracula-green">0.1208 Ω/km</div>
+                                </div>
+                            </div>
+                        </div>
 
-      const table = document.createElement('table');
-      table.className = 'w-full text-left border-collapse';
+                        <!-- 第 6 項最下方的法規備註 -->
+                        <div class="mt-2 px-3 py-2 bg-dracula-bg/60 border border-dracula-current rounded-xl space-y-0.5">
+                            <div class="text-[11px] text-dracula-cyan/90 leading-relaxed">
+                                依「用戶用電設備裝置規則」第九百九十三條，線徑不得小於 14mm²
+                            </div>
+                            <div class="text-[10px] text-dracula-comment font-mono">
+                                (民國 114 年 05 月 09 日修正) ｜ 載流基準：表 16-6 金屬導線管配線 (3條)
+                            </div>
+                        </div>
+                    </div>
 
-      let theadHtml = `
-        <thead>
-          <tr class="border-b border-scholar-border">
-            <th class="py-2.5 px-3 text-xs font-semibold text-scholar-navy">習慣項目</th>
-      `;
-      dates.forEach(d => {
-        theadHtml += `<th class="py-2 px-1 text-center text-[11px] font-medium ${
-          d.isToday ? 'text-scholar-navy font-bold bg-scholar-gold/20 rounded-t' : 'text-scholar-textMuted'
-        }">${d.label}</th>`;
-      });
-      theadHtml += `</tr></thead>`;
+                    <!-- 7. 容許壓降率上限 (%) -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-semibold text-dracula-comment uppercase tracking-wider">
+                                7. 容許壓降率上限 (%)
+                            </label>
+                            <span class="text-[11px] text-dracula-green">法規標準值</span>
+                        </div>
+                        <input type="text" value="3.000 % (固定)" disabled 
+                            class="w-full bg-dracula-bg/50 border border-dracula-current/80 rounded-xl px-4 py-2.5 text-dracula-comment font-mono text-sm cursor-not-allowed">
+                    </div>
 
-      let tbodyHtml = '<tbody>';
-      const filtered = state.habits.filter(h => state.activeCategory === 'all' || h.categoryId === state.activeCategory);
-
-      filtered.forEach(habit => {
-        tbodyHtml += `<tr class="border-b border-scholar-border/60 hover:bg-scholar-paper/60 transition">`;
-        tbodyHtml += `<td class="py-2.5 px-3 text-xs font-medium text-scholar-navy max-w-[150px] truncate">${habit.title}</td>`;
-
-        dates.forEach(d => {
-          const isDone = !!(state.logs[d.key] && state.logs[d.key][habit.id]);
-          tbodyHtml += `
-            <td class="py-2 px-1 text-center ${d.isToday ? 'bg-scholar-gold/10' : ''}">
-              <button onclick="toggleHabitLog('${habit.id}', '${d.key}')" type="button" class="w-5 h-5 rounded-xs inline-flex items-center justify-center transition border ${
-                isDone ? 'bg-scholar-gold text-scholar-navy border-scholar-gold font-bold' : 'bg-scholar-paper hover:bg-scholar-hover border-scholar-border text-transparent'
-              }">
-                <i data-lucide="check" class="w-3 h-3 pointer-events-none"></i>
-              </button>
-            </td>
-          `;
-        });
-        tbodyHtml += `</tr>`;
-      });
-
-      tbodyHtml += '</tbody>';
-      table.innerHTML = theadHtml + tbodyHtml;
-      container.appendChild(table);
-    }
-
-    function renderHealthLogs() {
-      const tbody = document.getElementById('health-logs-table-body');
-      const emptyState = document.getElementById('health-empty-state');
-      tbody.innerHTML = '';
-
-      if (!state.healthLogs || state.healthLogs.length === 0) {
-        emptyState.classList.remove('hidden');
-        return;
-      }
-      emptyState.classList.add('hidden');
-
-      const sorted = [...state.healthLogs].sort((a, b) => {
-        return (b.date + (b.period === '晚間' ? '2' : '1')).localeCompare(a.date + (a.period === '晚間' ? '2' : '1'));
-      });
-
-      sorted.forEach(log => {
-        const evalRes = getBloodPressureEvaluation(log.sys, log.dia);
-        const tr = document.createElement('tr');
-        tr.className = 'hover:bg-scholar-paper/70 transition';
-        tr.innerHTML = `
-          <td class="py-3 px-3 sm:px-4 font-mono font-medium text-scholar-navy">${log.date}</td>
-          <td class="py-3 px-2 sm:px-3">
-            <span class="px-2 py-0.5 rounded text-[10px] font-medium border ${
-              log.period === '晨起' ? 'bg-scholar-paper border-scholar-border text-scholar-navy' : 'bg-scholar-hover border-scholar-border text-scholar-navy'
-            }">${log.period}</span>
-          </td>
-          <td class="py-3 px-2 sm:px-3 font-semibold text-scholar-navy">${log.sys}</td>
-          <td class="py-3 px-2 sm:px-3 font-semibold text-scholar-navy">${log.dia}</td>
-          <td class="py-3 px-2 sm:px-3">
-            <span class="px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${evalRes.colorClass}">
-              ${evalRes.label}
-            </span>
-          </td>
-          <td class="py-3 px-2 sm:px-3 text-scholar-navy font-medium">${log.weight ? log.weight + ' kg' : '--'}</td>
-          <td class="py-3 px-3 sm:px-4 text-scholar-textMuted max-w-[180px] truncate" title="${log.memo || ''}">
-            ${log.memo || '<span class="text-scholar-silver">--</span>'}
-          </td>
-          <td class="py-3 px-3 text-right">
-            <div class="inline-flex items-center gap-1">
-              <button onclick="editHealthLog('${log.id}')" type="button" class="p-1 text-scholar-textMuted hover:text-scholar-navy rounded hover:bg-scholar-hover transition" title="編輯">
-                <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
-              </button>
-              <button onclick="deleteHealthLog('${log.id}')" type="button" class="p-1 text-scholar-silver hover:text-scholar-navy rounded hover:bg-scholar-gold/20 transition" title="刪除">
-                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-              </button>
+                    <!-- 8. 功率因數 (鎖定) -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-semibold text-dracula-comment uppercase tracking-wider">
+                                8. 功率因數 (cos θ)
+                            </label>
+                            <span class="text-[11px] text-dracula-comment">雙基準鎖定</span>
+                        </div>
+                        <input type="text" value="壓降 PF=1.000 ｜ 線損 PF=0.990" disabled 
+                            class="w-full bg-dracula-bg/50 border border-dracula-current/80 rounded-xl px-4 py-2.5 text-dracula-comment font-mono text-sm cursor-not-allowed">
+                    </div>
+                </div>
             </div>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
 
-    function renderMedLogs() {
-      const tbody = document.getElementById('med-logs-table-body');
-      const emptyState = document.getElementById('med-empty-state');
-      tbody.innerHTML = '';
+            <!-- Right Column: Results & Smart Recommendation -->
+            <div class="lg:col-span-7 space-y-5">
+                
+                <!-- 4 Core Metric Cards -->
+                <div class="grid grid-cols-2 gap-4">
+                    
+                    <!-- 1. 電壓降 (V) -->
+                    <div class="bg-dracula-current/40 border border-dracula-current rounded-2xl p-5 relative overflow-hidden shadow-lg">
+                        <div class="flex items-center justify-between text-xs text-dracula-comment">
+                            <span>電壓降 (ΔV)</span>
+                            <span class="px-1.5 py-0.5 rounded text-[10px] bg-dracula-cyan/10 text-dracula-cyan border border-dracula-cyan/20 font-mono">20°C, PF=1.0</span>
+                        </div>
+                        <div class="mt-2 text-2xl sm:text-3xl font-extrabold font-mono text-white tracking-tight" id="valDeltaV">
+                            — <span class="text-sm font-normal text-dracula-comment">V</span>
+                        </div>
+                        <div class="mt-1 text-xs text-dracula-comment font-mono" id="resDeltaVFormula">
+                            待填寫參數
+                        </div>
+                    </div>
 
-      if (!state.medLogs || state.medLogs.length === 0) {
-        emptyState.classList.remove('hidden');
-        return;
-      }
-      emptyState.classList.add('hidden');
+                    <!-- 2. 電壓降率與法規狀態 (%) -->
+                    <div id="cardDropRate" class="bg-dracula-current/40 border border-dracula-current rounded-2xl p-5 relative overflow-hidden shadow-lg transition-colors">
+                        <div class="flex items-center justify-between text-xs text-dracula-comment">
+                            <span>電壓降率與綜合判定</span>
+                            <span id="badgeDropStatus" class="px-2 py-0.5 rounded text-[10px] font-bold bg-dracula-bg text-dracula-comment border border-dracula-current">
+                                待計算
+                            </span>
+                        </div>
+                        <div class="mt-2 text-2xl sm:text-3xl font-extrabold font-mono text-white tracking-tight" id="valDropRate">
+                            — <span class="text-sm font-normal text-dracula-comment">%</span>
+                        </div>
+                        <div class="mt-1 text-xs text-dracula-comment font-mono" id="labelDropSubText">
+                            壓降 ≤ 3% ｜ 線徑 ≥ 14mm² ｜ 表16-6 安全載流
+                        </div>
+                    </div>
 
-      const sorted = [...state.medLogs].sort((a, b) => {
-        return (b.date + b.period).localeCompare(a.date + a.period);
-      });
+                    <!-- 3. 線路功率損失 (W) -->
+                    <div class="bg-dracula-current/40 border border-dracula-current rounded-2xl p-5 relative overflow-hidden shadow-lg">
+                        <div class="flex items-center justify-between text-xs text-dracula-comment">
+                            <span>線路功率損失 (銅損)</span>
+                            <span class="px-1.5 py-0.5 rounded text-[10px] bg-dracula-orange/10 text-dracula-orange border border-dracula-orange/20 font-mono">90°C, PF=0.99</span>
+                        </div>
+                        <div class="mt-2 text-2xl sm:text-3xl font-extrabold font-mono text-dracula-orange tracking-tight" id="valLossWatts">
+                            — <span class="text-sm font-normal text-dracula-comment">W</span>
+                        </div>
+                        <div class="mt-1 text-xs text-dracula-comment font-mono" id="valLossFormula">
+                            待填寫參數
+                        </div>
+                    </div>
 
-      sorted.forEach(log => {
-        const medBadges = (log.medItems || []).map(m => {
-          const medDef = state.medications.find(x => x.id === m.id);
-          const photoThumb = (medDef && medDef.photo)
-            ? `<img src="${medDef.photo}" alt="${m.name}" class="w-4 h-4 rounded-xs object-cover cursor-pointer shrink-0" onclick="showImageLightbox('${medDef.photo}', '${m.name}')" />`
-            : '';
+                    <!-- 4. 線路損失率 (%) -->
+                    <div class="bg-dracula-current/40 border border-dracula-current rounded-2xl p-5 relative overflow-hidden shadow-lg">
+                        <div class="flex items-center justify-between text-xs text-dracula-comment">
+                            <span>線路損失率</span>
+                            <span class="px-1.5 py-0.5 rounded text-[10px] bg-dracula-bg text-dracula-comment font-mono">銅損比</span>
+                        </div>
+                        <div class="mt-2 text-2xl sm:text-3xl font-extrabold font-mono text-white tracking-tight" id="valLossRate">
+                            — <span class="text-sm font-normal text-dracula-comment">%</span>
+                        </div>
+                        <div class="mt-1 text-xs text-dracula-comment font-mono" id="valTotalPowerHint">
+                            負載總功率: — kW
+                        </div>
+                    </div>
+                </div>
 
-          return `
-            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] bg-scholar-paper border border-scholar-border text-scholar-navy font-medium">
-              ${photoThumb}
-              <span>${m.name}</span>
-              <span class="text-scholar-textMuted">(${m.dosage})</span>
-            </span>
-          `;
-        }).join(' ');
+                <!-- Smart Recommendation Panel -->
+                <div id="panelRecommendation" class="rounded-2xl border border-dracula-current bg-dracula-current/20 p-5 shadow-xl transition-all">
+                    <div class="text-xs text-dracula-comment text-center py-2 font-mono">
+                        請於左側輸入「電壓、長度與負載 (或電流)」，系統將立即進行核算與合規判斷
+                    </div>
+                </div>
 
-        const tr = document.createElement('tr');
-        tr.className = 'hover:bg-scholar-paper/70 transition';
-        tr.innerHTML = `
-          <td class="py-3 px-3 sm:px-4 font-mono font-medium text-scholar-navy">${log.date}</td>
-          <td class="py-3 px-2 sm:px-3">
-            <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-scholar-gold/15 text-scholar-navy border border-scholar-gold/30">
-              ${log.period}
-            </span>
-          </td>
-          <td class="py-3 px-3">
-            <div class="flex flex-wrap gap-1">
-              ${medBadges || '<span class="text-scholar-silver">未勾選藥品</span>'}
+                <!-- Collapsible Cable Spec Reference Table -->
+                <div class="bg-dracula-current/40 border border-dracula-current rounded-2xl overflow-hidden shadow-lg">
+                    <button type="button" id="btnToggleTable" class="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-dracula-current/60 transition-colors">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-semibold text-dracula-fg">表 16-6 金屬導線管配線 (90°C, 3條) 與阻抗對照表</span>
+                            <span class="text-xs px-2 py-0.5 rounded bg-dracula-bg text-dracula-comment">詳細參數</span>
+                        </div>
+                        <span id="iconTableChevron" class="text-dracula-comment text-sm transition-transform duration-200">▼</span>
+                    </button>
+                    
+                    <div id="containerTable" class="border-t border-dracula-current overflow-x-auto">
+                        <table class="w-full text-left text-xs font-mono">
+                            <thead class="bg-dracula-bg text-dracula-comment uppercase text-[11px]">
+                                <tr>
+                                    <th class="py-2.5 px-4">公稱截面積 (mm²)</th>
+                                    <th class="py-2.5 px-4 text-dracula-yellow">表16-6 容許電流 (3條) (A)</th>
+                                    <th class="py-2.5 px-4 text-dracula-cyan">20°C 直流電阻 (Ω/km)</th>
+                                    <th class="py-2.5 px-4 text-dracula-orange">90°C 交流電阻 (Ω/km)</th>
+                                    <th class="py-2.5 px-4 text-dracula-green">電抗 XL (Ω/km)</th>
+                                    <th class="py-2.5 px-4 text-dracula-comment">約計完成外徑 (mm)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBodySpec" class="divide-y divide-dracula-current text-dracula-fg">
+                                <!-- Generated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
             </div>
-          </td>
-          <td class="py-3 px-3 sm:px-4 text-scholar-textMuted max-w-[180px] truncate" title="${log.memo || ''}">
-            ${log.memo || '<span class="text-scholar-silver">--</span>'}
-          </td>
-          <td class="py-3 px-3 text-right">
-            <div class="inline-flex items-center gap-1">
-              <button onclick="editMedLog('${log.id}')" type="button" class="p-1 text-scholar-textMuted hover:text-scholar-navy rounded hover:bg-scholar-hover transition" title="編輯">
-                <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
-              </button>
-              <button onclick="deleteMedLog('${log.id}')" type="button" class="p-1 text-scholar-silver hover:text-scholar-navy rounded hover:bg-scholar-gold/20 transition" title="刪除">
-                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-              </button>
-            </div>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
+        </div>
+    </div>
 
-    function renderMedManagerList() {
-      const container = document.getElementById('med-manager-list');
-      container.innerHTML = '';
-
-      if (!state.medications || state.medications.length === 0) {
-        container.innerHTML = '<p class="text-xs text-scholar-textMuted text-center py-6">藥箱空空如也，點擊下方「新增藥品」建立常用清單！</p>';
-        return;
-      }
-
-      state.medications.forEach(med => {
-        let freqText = '每日服用';
-        if (med.freqType === 'weekly_custom') {
-          const daysStr = (med.weekdays || []).map(getWeekdayLabel).join('、');
-          freqText = `每週自訂 (${daysStr || '未設'})`;
-        } else if (med.freqType === 'prn') {
-          freqText = '需要時服用 (PRN)';
-        }
-
-        const photoHtml = med.photo 
-          ? `<img src="${med.photo}" alt="${med.name}" class="w-10 h-10 rounded-lg object-cover border border-scholar-border cursor-pointer shrink-0" onclick="showImageLightbox('${med.photo}', '${med.name}')" title="點擊檢視大圖" />`
-          : `<div class="w-10 h-10 rounded-lg bg-scholar-card border border-scholar-border flex items-center justify-center text-scholar-gold shrink-0">
-               <i data-lucide="pill" class="w-5 h-5"></i>
-             </div>`;
-
-        const item = document.createElement('div');
-        item.className = 'flex items-center justify-between p-3 rounded-xl bg-scholar-paper border border-scholar-border';
-        item.innerHTML = `
-          <div class="flex items-center gap-3 min-w-0">
-            ${photoHtml}
-            <div class="truncate">
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-semibold text-scholar-navy truncate">${med.name}</span>
-                <span class="text-[10px] px-1.5 py-0.2 rounded bg-scholar-card border border-scholar-border text-scholar-textMuted shrink-0">${med.dosage}</span>
-              </div>
-              <span class="text-[11px] text-scholar-textMuted block mt-0.5 truncate">
-                頻率: <strong class="text-scholar-navy font-medium">${freqText}</strong> · 時段: ${med.timing} ${med.notes ? `(${med.notes})` : ''}
-              </span>
-            </div>
-          </div>
-          <div class="flex items-center gap-1 shrink-0 pl-2">
-            <button onclick="editMedication('${med.id}')" type="button" class="p-1.5 text-scholar-textMuted hover:text-scholar-navy rounded-lg hover:bg-scholar-hover transition" title="編輯藥品">
-              <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
-            </button>
-            <button onclick="deleteMedication('${med.id}')" type="button" class="p-1.5 text-scholar-silver hover:text-scholar-navy rounded-lg hover:bg-scholar-gold/20 transition" title="刪除藥品">
-              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-            </button>
-          </div>
-        `;
-        container.appendChild(item);
-      });
-    }
-
-    function renderHeatmap() {
-      const container = document.getElementById('heatmap-container');
-      container.innerHTML = '';
-
-      const totalDays = 119;
-      const days = [];
-      for (let i = totalDays - 1; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        days.push(getStandardDateKey(d));
-      }
-
-      let currentCol = document.createElement('div');
-      currentCol.className = 'flex flex-col gap-1';
-
-      days.forEach((key, idx) => {
-        const logForDay = state.logs[key] || {};
-        const doneCount = Object.values(logForDay).filter(Boolean).length;
-        const total = state.habits.length || 1;
-        const ratio = doneCount / total;
-
-        let bgClass = 'bg-scholar-paper border border-scholar-border/50';
-        if (doneCount > 0) {
-          if (ratio <= 0.25) bgClass = 'bg-scholar-silver/40';
-          else if (ratio <= 0.5) bgClass = 'bg-scholar-gold/40';
-          else if (ratio <= 0.75) bgClass = 'bg-scholar-gold/70';
-          else bgClass = 'bg-scholar-gold';
-        }
-
-        const box = document.createElement('div');
-        box.className = `w-3 h-3 rounded-xs ${bgClass} transition-colors cursor-pointer`;
-        box.title = `${key}: 完成 ${doneCount} 個習慣`;
-        currentCol.appendChild(box);
-
-        if ((idx + 1) % 7 === 0 || idx === days.length - 1) {
-          container.appendChild(currentCol);
-          currentCol = document.createElement('div');
-          currentCol.className = 'flex flex-col gap-1';
-        }
-      });
-    }
-
-    function renderRankings() {
-      const container = document.getElementById('habit-rankings-container');
-      container.innerHTML = '';
-
-      if (state.habits.length === 0) {
-        container.innerHTML = '<p class="text-xs text-scholar-silver">尚無習慣資料</p>';
-        return;
-      }
-
-      state.habits.forEach(habit => {
-        let count = 0;
-        Object.keys(state.logs).forEach(date => {
-          if (state.logs[date] && state.logs[date][habit.id]) count++;
-        });
-
-        const cat = state.categories.find(c => c.id === habit.categoryId) || { name: '日常', color: '#D3AC2B' };
-
-        const row = document.createElement('div');
-        row.className = 'flex items-center justify-between text-xs py-1.5 border-b border-scholar-border/60 last:border-none';
-        row.innerHTML = `
-          <div class="flex items-center gap-2 truncate">
-            <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${cat.color}"></span>
-            <span class="font-medium text-scholar-navy truncate">${habit.title}</span>
-          </div>
-          <span class="text-scholar-navy font-semibold shrink-0">累計 ${count} 次</span>
-        `;
-        container.appendChild(row);
-      });
-    }
-
-    function renderCategoryManagerList() {
-      const list = document.getElementById('category-manager-list');
-      list.innerHTML = '';
-
-      state.categories.forEach(cat => {
-        const habitCount = state.habits.filter(h => h.categoryId === cat.id).length;
-        const item = document.createElement('div');
-        item.className = 'flex items-center justify-between p-3 rounded-xl bg-scholar-paper border border-scholar-border';
-        item.innerHTML = `
-          <div class="flex items-center gap-3">
-            <span class="w-3.5 h-3.5 rounded-full shrink-0" style="background-color: ${cat.color}"></span>
-            <div>
-              <span class="text-xs font-semibold text-scholar-navy">${cat.name}</span>
-              <span class="text-[11px] text-scholar-textMuted block">關聯習慣數：${habitCount} 項</span>
-            </div>
-          </div>
-          <div class="flex items-center gap-1">
-            <button onclick="editCategoryModal('${cat.id}')" type="button" class="p-1.5 text-scholar-textMuted hover:text-scholar-navy rounded-lg hover:bg-scholar-hover transition" title="編輯分類">
-              <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
-            </button>
-            <button onclick="deleteCategory('${cat.id}')" type="button" class="p-1.5 text-scholar-silver hover:text-scholar-navy rounded-lg hover:bg-scholar-gold/20 transition" title="刪除分類">
-              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-            </button>
-          </div>
-        `;
-        list.appendChild(item);
-      });
-    }
-
-    function populateHabitCategorySelect(selectedId = null) {
-      const select = document.getElementById('select-habit-category');
-      select.innerHTML = '';
-      state.categories.forEach(cat => {
-        const opt = document.createElement('option');
-        opt.value = cat.id;
-        opt.innerText = cat.name;
-        if (selectedId && cat.id === selectedId) {
-          opt.selected = true;
-        }
-        select.appendChild(opt);
-      });
-    }
-
-    function setMedLogPeriod(period) {
-      document.getElementById('input-log-med-period').value = period;
-      document.querySelectorAll('.btn-med-period-tab').forEach(btn => {
-        if (btn.dataset.period === period) {
-          btn.className = 'btn-med-period-tab py-2 text-xs font-semibold rounded-lg transition-all text-center bg-scholar-card text-scholar-navy shadow-xs border border-scholar-border';
-        } else {
-          btn.className = 'btn-med-period-tab py-2 text-xs font-medium rounded-lg transition-all text-center text-scholar-textMuted hover:text-scholar-navy';
-        }
-      });
-    }
-
-    function renderMedChecklist(targetDateStr, manualCheckedIds = null) {
-      const container = document.getElementById('med-checklist-container');
-      container.innerHTML = '';
-
-      if (!state.medications || state.medications.length === 0) {
-        container.innerHTML = '<p class="text-xs text-scholar-textMuted p-2 text-center">藥箱尚無藥品，請先點擊上方「+ 管理藥箱」新增！</p>';
-        return;
-      }
-
-      const dayOfWeek = getIsoDayOfWeek(targetDateStr);
-      const scheduledMeds = [];
-      const otherMeds = [];
-
-      state.medications.forEach(med => {
-        const freqType = med.freqType || 'daily';
-        if (freqType === 'daily') {
-          scheduledMeds.push(med);
-        } else if (freqType === 'weekly_custom') {
-          if (med.weekdays && med.weekdays.includes(dayOfWeek)) {
-            scheduledMeds.push(med);
-          } else {
-            otherMeds.push(med);
-          }
-        } else {
-          otherMeds.push(med);
-        }
-      });
-
-      function createMedItemEl(med, isScheduled) {
-        let isChecked = false;
-        if (manualCheckedIds !== null) {
-          isChecked = manualCheckedIds.includes(med.id);
-        } else {
-          isChecked = isScheduled;
-        }
-
-        const photoHtml = med.photo
-          ? `<img src="${med.photo}" alt="${med.name}" class="w-8 h-8 rounded-lg object-cover border border-scholar-border shrink-0 cursor-pointer" onclick="event.stopPropagation(); showImageLightbox('${med.photo}', '${med.name}')" title="點擊檢視大圖" />`
-          : `<div class="w-8 h-8 rounded-lg bg-scholar-card border border-scholar-border flex items-center justify-center text-scholar-gold shrink-0">
-               <i data-lucide="pill" class="w-4 h-4"></i>
-             </div>`;
-
-        const label = document.createElement('label');
-        label.className = `flex items-center justify-between p-2.5 rounded-xl border cursor-pointer transition ${
-          isScheduled 
-            ? 'bg-scholar-card border-scholar-gold/40 hover:border-scholar-gold shadow-2xs' 
-            : 'bg-scholar-paper/60 border-scholar-border/70 hover:bg-scholar-card text-scholar-textMuted'
-        }`;
-
-        let scheduleBadge = '';
-        if (isScheduled && med.freqType === 'weekly_custom') {
-          scheduleBadge = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-scholar-gold/15 text-scholar-navy font-semibold border border-scholar-gold/30">今日排程 (週${getWeekdayLabel(dayOfWeek)})</span>`;
-        } else if (!isScheduled && med.freqType === 'weekly_custom') {
-          const daysStr = (med.weekdays || []).map(getWeekdayLabel).join('、');
-          scheduleBadge = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-scholar-silver/20 text-scholar-textMuted">休止日 (排程：${daysStr})</span>`;
-        }
-
-        label.innerHTML = `
-          <div class="flex items-center gap-2.5 min-w-0">
-            <input type="checkbox" name="selected_med" value="${med.id}" ${isChecked ? 'checked' : ''} class="w-4 h-4 rounded text-scholar-gold focus:ring-scholar-gold/30 accent-[#D3AC2B] shrink-0" />
-            ${photoHtml}
-            <div class="truncate">
-              <div class="flex items-center gap-1.5">
-                <span class="text-xs font-semibold text-scholar-navy truncate">${med.name}</span>
-                ${scheduleBadge}
-              </div>
-              <span class="text-[11px] text-scholar-textMuted block truncate">${med.dosage} · ${med.timing} ${med.notes ? `(${med.notes})` : ''}</span>
-            </div>
-          </div>
-        `;
-        return label;
-      }
-
-      if (scheduledMeds.length > 0) {
-        const header = document.createElement('div');
-        header.className = 'text-[11px] font-semibold text-scholar-navy flex items-center gap-1 pb-0.5';
-        header.innerHTML = `<i data-lucide="check-circle" class="w-3.5 h-3.5 text-scholar-gold"></i><span>今日排定用藥 (${scheduledMeds.length})</span>`;
-        container.appendChild(header);
-
-        scheduledMeds.forEach(m => container.appendChild(createMedItemEl(m, true)));
-      }
-
-      if (otherMeds.length > 0) {
-        const header = document.createElement('div');
-        header.className = 'text-[11px] font-medium text-scholar-textMuted flex items-center gap-1 pt-2 pb-0.5';
-        header.innerHTML = `<span>非今日排定 / 備用藥 (${otherMeds.length})</span>`;
-        container.appendChild(header);
-
-        otherMeds.forEach(m => container.appendChild(createMedItemEl(m, false)));
-      }
-
-      lucide.createIcons();
-    }
-
-    function openLogMedModal(editId = null) {
-      const modal = document.getElementById('modal-log-med');
-      const title = document.getElementById('modal-log-med-title');
-      const form = document.getElementById('form-log-med');
-      form.reset();
-
-      if (editId) {
-        const log = state.medLogs.find(l => l.id === editId);
-        if (log) {
-          title.innerText = '編輯服藥紀錄';
-          document.getElementById('input-log-med-id').value = log.id;
-          document.getElementById('input-log-med-date').value = log.date;
-          setMedLogPeriod(log.period || '晨起');
-          document.getElementById('input-log-med-memo').value = log.memo || '';
-          const checkedIds = (log.medItems || []).map(m => m.id);
-          renderMedChecklist(log.date, checkedIds);
-        }
-      } else {
-        title.innerText = '記錄服藥';
-        const todayStr = getStandardDateKey();
-        document.getElementById('input-log-med-id').value = '';
-        document.getElementById('input-log-med-date').value = todayStr;
-        
-        const h = new Date().getHours();
-        let defaultPeriod = '晨起';
-        if (h >= 11 && h < 14) defaultPeriod = '午間';
-        else if (h >= 14 && h < 20) defaultPeriod = '晚間';
-        else if (h >= 20 || h < 5) defaultPeriod = '睡前';
-        setMedLogPeriod(defaultPeriod);
-
-        renderMedChecklist(todayStr, null);
-      }
-
-      modal.classList.remove('hidden');
-    }
-
-    window.editMedLog = function(id) {
-      openLogMedModal(id);
-    };
-
-    window.deleteMedLog = function(id) {
-      if (confirm('確定要刪除這筆服藥紀錄嗎？')) {
-        state.medLogs = state.medLogs.filter(l => l.id !== id);
-        saveState();
-        renderApp();
-      }
-    };
-
-    function setMedPhotoPreview(dataUrl) {
-      const imgEl = document.getElementById('med-photo-preview');
-      const iconEl = document.getElementById('med-photo-placeholder-icon');
-      const removeBtn = document.getElementById('btn-remove-med-photo');
-      const inputHidden = document.getElementById('input-med-photo');
-
-      if (dataUrl) {
-        imgEl.src = dataUrl;
-        imgEl.classList.remove('hidden');
-        iconEl.classList.add('hidden');
-        removeBtn.classList.remove('hidden');
-        inputHidden.value = dataUrl;
-      } else {
-        imgEl.src = '';
-        imgEl.classList.add('hidden');
-        iconEl.classList.remove('hidden');
-        removeBtn.classList.add('hidden');
-        inputHidden.value = '';
-      }
-    }
-
-    function renderWeekdaySelector(selectedDays = [1, 3, 5]) {
-      const container = document.getElementById('weekday-selector-container');
-      container.innerHTML = '';
-      const days = [
-        { num: 1, label: '一' },
-        { num: 2, label: '二' },
-        { num: 3, label: '三' },
-        { num: 4, label: '四' },
-        { num: 5, label: '五' },
-        { num: 6, label: '六' },
-        { num: 7, label: '日' }
-      ];
-
-      days.forEach(d => {
-        const isSelected = selectedDays.includes(d.num);
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = `py-1.5 text-xs font-semibold rounded-lg border transition text-center ${
-          isSelected 
-            ? 'bg-scholar-gold text-scholar-navy border-scholar-gold shadow-xs' 
-            : 'bg-scholar-card text-scholar-textMuted border-scholar-border hover:border-scholar-gold/40'
-        }`;
-        btn.innerText = d.label;
-        btn.onclick = () => {
-          if (state.editingMedWeekdays.includes(d.num)) {
-            state.editingMedWeekdays = state.editingMedWeekdays.filter(x => x !== d.num);
-          } else {
-            state.editingMedWeekdays.push(d.num);
-            state.editingMedWeekdays.sort((a, b) => a - b);
-          }
-          renderWeekdaySelector(state.editingMedWeekdays);
+    <!-- Application Logic -->
+    <script>
+        // 完全依據「表 16-6 金屬導線管配線（導線溫度 90℃）- 容許電流（3條）」精確更新
+        const WIRE_SPECS = {
+            2:   { ampacity: 28,  r20: 9.24,  r90: 11.8457, x: 0.1385, od: 4.4 },
+            3.5: { ampacity: 30,  r20: 5.20,  r90: 6.6664,  x: 0.1279, od: 5.0 },
+            5.5: { ampacity: 39,  r20: 3.33,  r90: 4.2691,  x: 0.1195, od: 5.6 },
+            8:   { ampacity: 51,  r20: 2.31,  r90: 2.9453,  x: 0.1212, od: 6.6 },
+            14:  { ampacity: 74,  r20: 1.30,  r90: 1.6575,  x: 0.1208, od: 8.6 },
+            22:  { ampacity: 93,  r20: 0.824, r90: 1.0506,  x: 0.1131, od: 9.8 },
+            30:  { ampacity: 116, r20: 0.623, r90: 0.7943,  x: 0.1119, od: 11.0 },
+            38:  { ampacity: 130, r20: 0.487, r90: 0.6209,  x: 0.1084, od: 12.5 },
+            50:  { ampacity: 155, r20: 0.378, r90: 0.4820,  x: 0.1083, od: 14.0 },
+            60:  { ampacity: 176, r20: 0.303, r90: 0.3863,  x: 0.1051, od: 15.0 },
+            80:  { ampacity: 208, r20: 0.229, r90: 0.2920,  x: 0.1017, od: 16.0 },
+            100: { ampacity: 242, r20: 0.180, r90: 0.2297,  x: 0.0987, od: 18.5 }
         };
-        container.appendChild(btn);
-      });
-    }
 
-    function openMedEditModal(medId = null) {
-      const modal = document.getElementById('modal-med-edit');
-      const title = document.getElementById('med-edit-title');
-      const form = document.getElementById('form-med-edit');
-      const sectionWeekdays = document.getElementById('section-med-weekdays');
-      form.reset();
+        const PF_VOLTAGE_DROP = 1.0;
+        const PF_LINE_LOSS = 0.99;
+        const MAX_DROP_LIMIT = 3.0;
+        const MIN_WIRE_LIMIT = 14;     // 法規第 993 條限制
+        const CONTINUOUS_FACTOR = 1.25; // 連續負載安全倍數
 
-      if (medId) {
-        const med = state.medications.find(m => m.id === medId);
-        if (med) {
-          title.innerText = '編輯藥品資訊';
-          document.getElementById('input-med-id').value = med.id;
-          document.getElementById('input-med-name').value = med.name;
-          document.getElementById('input-med-dosage').value = med.dosage;
-          document.getElementById('select-med-freq-type').value = med.freqType || 'daily';
-          document.getElementById('select-med-timing').value = med.timing;
-          document.getElementById('input-med-notes').value = med.notes || '';
-          setMedPhotoPreview(med.photo || '');
-          
-          state.editingMedWeekdays = med.weekdays ? [...med.weekdays] : [1, 3, 5];
-          if (med.freqType === 'weekly_custom') {
-            sectionWeekdays.classList.remove('hidden');
-          } else {
-            sectionWeekdays.classList.add('hidden');
-          }
-        }
-      } else {
-        title.innerText = '新增常用藥品';
-        document.getElementById('input-med-id').value = '';
-        document.getElementById('select-med-freq-type').value = 'weekly_custom';
-        sectionWeekdays.classList.remove('hidden');
-        setMedPhotoPreview('');
-        state.editingMedWeekdays = [1, 3, 5];
-      }
-
-      renderWeekdaySelector(state.editingMedWeekdays);
-      modal.classList.remove('hidden');
-      lucide.createIcons();
-    }
-
-    window.editMedication = function(id) {
-      openMedEditModal(id);
-    };
-
-    window.deleteMedication = function(id) {
-      if (confirm('確定要從藥箱移除此藥品嗎？（不會影響過去已記下的歷史紀錄）')) {
-        state.medications = state.medications.filter(m => m.id !== id);
-        saveState();
-        renderApp();
-      }
-    };
-
-    function setHealthPeriod(period) {
-      document.getElementById('input-health-period').value = period;
-      const btnMorning = document.getElementById('btn-period-morning');
-      const btnEvening = document.getElementById('btn-period-evening');
-
-      if (period === '晨起') {
-        btnMorning.className = 'py-2 text-xs font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 bg-scholar-card text-scholar-navy shadow-xs border border-scholar-border/50';
-        btnEvening.className = 'py-2 text-xs font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 text-scholar-textMuted hover:text-scholar-navy';
-      } else {
-        btnEvening.className = 'py-2 text-xs font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 bg-scholar-card text-scholar-navy shadow-xs border border-scholar-border/50';
-        btnMorning.className = 'py-2 text-xs font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 text-scholar-textMuted hover:text-scholar-navy';
-      }
-    }
-
-    function openHealthModal(editId = null) {
-      const modal = document.getElementById('modal-health');
-      const title = document.getElementById('modal-health-title');
-      const form = document.getElementById('form-health');
-      form.reset();
-
-      if (editId) {
-        const log = state.healthLogs.find(l => l.id === editId);
-        if (log) {
-          title.innerText = '編輯健康紀錄';
-          document.getElementById('input-health-id').value = log.id;
-          document.getElementById('input-health-date').value = log.date;
-          setHealthPeriod(log.period || '晨起');
-          document.getElementById('input-health-sys').value = log.sys;
-          document.getElementById('input-health-dia').value = log.dia;
-          document.getElementById('input-health-weight').value = log.weight || '';
-          document.getElementById('input-health-pulse').value = log.pulse || '';
-          document.getElementById('input-health-memo').value = log.memo || '';
-        }
-      } else {
-        title.innerText = '記錄血壓與體重';
-        document.getElementById('input-health-id').value = '';
-        document.getElementById('input-health-date').value = getStandardDateKey();
-        const currentHour = new Date().getHours();
-        setHealthPeriod(currentHour < 12 ? '晨起' : '晚間');
-      }
-
-      modal.classList.remove('hidden');
-    }
-
-    window.editHealthLog = function(id) {
-      openHealthModal(id);
-    };
-
-    window.deleteHealthLog = function(id) {
-      if (confirm('確定要刪除這筆健康紀錄嗎？')) {
-        state.healthLogs = state.healthLogs.filter(l => l.id !== id);
-        saveState();
-        renderApp();
-      }
-    };
-
-    function openCategoryEditModal(catId = null) {
-      const modal = document.getElementById('modal-category-edit');
-      const title = document.getElementById('category-edit-title');
-      const inputId = document.getElementById('input-category-id');
-      const inputName = document.getElementById('input-category-name');
-      const inputColor = document.getElementById('input-category-color');
-
-      if (catId) {
-        const cat = state.categories.find(c => c.id === catId);
-        if (cat) {
-          title.innerText = '編輯分類';
-          inputId.value = cat.id;
-          inputName.value = cat.name;
-          inputColor.value = cat.color;
-        }
-      } else {
-        title.innerText = '建立自訂分類';
-        inputId.value = '';
-        inputName.value = '';
-        inputColor.value = PALETTE[0].color;
-      }
-
-      renderPaletteOptions(inputColor.value);
-      modal.classList.remove('hidden');
-      inputName.focus();
-    }
-
-    window.editCategoryModal = function(id) {
-      openCategoryEditModal(id);
-    };
-
-    window.deleteCategory = function(catId) {
-      if (state.categories.length <= 1) {
-        alert('請至少保留一個分類！');
-        return;
-      }
-      if (confirm('確定要刪除此分類嗎？屬於該分類的習慣將自動轉移至其他分類。')) {
-        state.categories = state.categories.filter(c => c.id !== catId);
-        const fallbackId = state.categories[0].id;
-        state.habits.forEach(h => {
-          if (h.categoryId === catId) h.categoryId = fallbackId;
-        });
-        if (state.activeCategory === catId) state.activeCategory = 'all';
-        saveState();
-        renderApp();
-      }
-    };
-
-    function renderPaletteOptions(selectedColor) {
-      const container = document.getElementById('category-color-palette');
-      container.innerHTML = '';
-      PALETTE.forEach(p => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = `w-7 h-7 rounded-lg flex items-center justify-center transition border ${
-          selectedColor === p.color ? 'ring-2 ring-scholar-navy border-white' : 'border-transparent'
-        }`;
-        btn.style.backgroundColor = p.color;
-        btn.onclick = () => {
-          document.getElementById('input-category-color').value = p.color;
-          renderPaletteOptions(p.color);
-        };
-        container.appendChild(btn);
-      });
-    }
-
-    window.openEditHabitModal = function(habitId) {
-      const modal = document.getElementById('modal-habit');
-      const title = document.getElementById('modal-habit-title');
-      const inputId = document.getElementById('input-habit-id');
-      const inputTitle = document.getElementById('input-habit-title');
-      const inputDesc = document.getElementById('input-habit-desc');
-      const inputIcon = document.getElementById('input-habit-icon');
-
-      const habit = state.habits.find(h => h.id === habitId);
-      if (!habit) return;
-
-      title.innerText = '編輯習慣';
-      inputId.value = habit.id;
-      inputTitle.value = habit.title;
-      inputDesc.value = habit.desc || '';
-      populateHabitCategorySelect(habit.categoryId);
-      inputIcon.value = habit.icon || 'check';
-      renderIconSelector(habit.icon || 'check');
-
-      modal.classList.remove('hidden');
-    };
-
-    function renderIconSelector(selectedIcon) {
-      const container = document.getElementById('icon-selector-container');
-      container.innerHTML = '';
-      AVAILABLE_ICONS.forEach(ic => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = `w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border transition ${
-          selectedIcon === ic ? 'bg-scholar-navy text-scholar-paper border-scholar-navy' : 'bg-scholar-paper text-scholar-textMuted border-scholar-border hover:bg-scholar-hover'
-        }`;
-        btn.innerHTML = `<i data-lucide="${ic}" class="w-4 h-4"></i>`;
-        btn.onclick = () => {
-          document.getElementById('input-habit-icon').value = ic;
-          renderIconSelector(ic);
-          lucide.createIcons();
-        };
-        container.appendChild(btn);
-      });
-    }
-
-    // ==================== 初始化與事件掛載 ====================
-    document.addEventListener('DOMContentLoaded', () => {
-      loadStateFromLocal();
-      renderApp();
-
-      document.getElementById('current-date-display').innerText = formatDateDisplay(getStandardDateKey());
-
-      setupFirebaseListener();
-
-      const mainTabHabit = document.getElementById('main-tab-habit');
-      const mainTabHealth = document.getElementById('main-tab-health');
-      mainTabHabit.onclick = () => switchWorkspace('habit');
-      mainTabHealth.onclick = () => switchWorkspace('health');
-
-      const tabToday = document.getElementById('view-tab-today');
-      const tabGrid = document.getElementById('view-tab-grid');
-      const tabStats = document.getElementById('view-tab-stats');
-
-      const secToday = document.getElementById('view-today');
-      const secGrid = document.getElementById('view-grid');
-      const secStats = document.getElementById('view-stats');
-
-      function switchHabitView(target) {
-        [tabToday, tabGrid, tabStats].forEach(t => {
-          t.className = 'flex-1 sm:flex-initial px-3.5 py-1.5 text-xs font-medium rounded-lg text-scholar-textMuted hover:text-scholar-navy transition whitespace-nowrap text-center';
-        });
-        [secToday, secGrid, secStats].forEach(s => s.classList.add('hidden'));
-
-        if (target === 'today') {
-          tabToday.className = 'flex-1 sm:flex-initial px-3.5 py-1.5 text-xs font-medium rounded-lg bg-scholar-card text-scholar-navy shadow-xs transition whitespace-nowrap text-center';
-          secToday.classList.remove('hidden');
-        } else if (target === 'grid') {
-          tabGrid.className = 'flex-1 sm:flex-initial px-3.5 py-1.5 text-xs font-medium rounded-lg bg-scholar-card text-scholar-navy shadow-xs transition whitespace-nowrap text-center';
-          secGrid.classList.remove('hidden');
-        } else if (target === 'stats') {
-          tabStats.className = 'flex-1 sm:flex-initial px-3.5 py-1.5 text-xs font-medium rounded-lg bg-scholar-card text-scholar-navy shadow-xs transition whitespace-nowrap text-center';
-          secStats.classList.remove('hidden');
-        }
-      }
-
-      tabToday.onclick = () => switchHabitView('today');
-      tabGrid.onclick = () => switchHabitView('grid');
-      tabStats.onclick = () => switchHabitView('stats');
-
-      const subtabBp = document.getElementById('subtab-bp');
-      const subtabMed = document.getElementById('subtab-med');
-      const subviewBp = document.getElementById('subview-bp');
-      const subviewMed = document.getElementById('subview-med');
-
-      subtabBp.onclick = () => {
-        subtabBp.className = 'px-3.5 py-1.5 rounded-lg bg-scholar-card text-scholar-navy font-semibold shadow-xs transition';
-        subtabMed.className = 'px-3.5 py-1.5 rounded-lg text-scholar-textMuted hover:text-scholar-navy transition';
-        subviewBp.classList.remove('hidden');
-        subviewMed.classList.add('hidden');
-      };
-
-      subtabMed.onclick = () => {
-        subtabMed.className = 'px-3.5 py-1.5 rounded-lg bg-scholar-card text-scholar-navy font-semibold shadow-xs transition';
-        subtabBp.className = 'px-3.5 py-1.5 rounded-lg text-scholar-textMuted hover:text-scholar-navy transition';
-        subviewMed.classList.remove('hidden');
-        subviewBp.classList.add('hidden');
-      };
-
-      document.querySelectorAll('.btn-med-period-tab').forEach(btn => {
-        btn.onclick = () => setMedLogPeriod(btn.dataset.period);
-      });
-
-      document.getElementById('input-log-med-date').onchange = (e) => {
-        const val = e.target.value;
-        if (val) {
-          renderMedChecklist(val, null);
-        }
-      };
-
-      const modalLogMed = document.getElementById('modal-log-med');
-      document.getElementById('btn-open-log-med-modal').onclick = () => openLogMedModal();
-      document.getElementById('btn-health-quick-log-med').onclick = () => openLogMedModal();
-      document.getElementById('btn-close-log-med-modal').onclick = () => modalLogMed.classList.add('hidden');
-      document.getElementById('btn-cancel-log-med').onclick = () => modalLogMed.classList.add('hidden');
-
-      document.getElementById('form-log-med').onsubmit = (e) => {
-        e.preventDefault();
-        const id = document.getElementById('input-log-med-id').value;
-        const date = document.getElementById('input-log-med-date').value;
-        const period = document.getElementById('input-log-med-period').value;
-        const memo = document.getElementById('input-log-med-memo').value.trim();
-
-        const checkedCheckboxes = document.querySelectorAll('input[name="selected_med"]:checked');
-        const medItems = Array.from(checkedCheckboxes).map(cb => {
-          const med = state.medications.find(m => m.id === cb.value);
-          return med ? { id: med.id, name: med.name, dosage: med.dosage } : null;
-        }).filter(Boolean);
-
-        if (id) {
-          const item = state.medLogs.find(l => l.id === id);
-          if (item) {
-            item.date = date;
-            item.period = period;
-            item.medItems = medItems;
-            item.memo = memo;
-          }
-        } else {
-          state.medLogs.push({
-            id: 'ml-' + Date.now(),
-            date,
-            period,
-            medItems,
-            memo
-          });
+        function round3(val) {
+            if (val === null || val === undefined || isNaN(val) || !isFinite(val)) return '0.000';
+            return (Math.round(Number(val + 'e+3')) / 1000).toFixed(3);
         }
 
-        saveState();
-        modalLogMed.classList.add('hidden');
-        renderApp();
-      };
+        let currentSystem = '1p3w';
 
-      const modalMedManager = document.getElementById('modal-med-manager');
-      document.getElementById('btn-open-med-manager-modal').onclick = () => {
-        renderMedManagerList();
-        modalMedManager.classList.remove('hidden');
-        lucide.createIcons();
-      };
-      document.getElementById('btn-quick-manage-meds').onclick = () => {
-        renderMedManagerList();
-        modalMedManager.classList.remove('hidden');
-        lucide.createIcons();
-      };
-      document.getElementById('btn-close-med-manager').onclick = () => modalMedManager.classList.add('hidden');
+        const inputVA = document.getElementById('inputVA');
+        const inputVoltage = document.getElementById('inputVoltage');
+        const inputCurrent = document.getElementById('inputCurrent');
+        const inputLength = document.getElementById('inputLength');
+        const selectWireSize = document.getElementById('selectWireSize');
+        const vaCalcHint = document.getElementById('vaCalcHint');
+        const voltageModeBadge = document.getElementById('voltageModeBadge');
+        const ampacityCheckHint = document.getElementById('ampacityCheckHint');
+        const paramAmpacity = document.getElementById('paramAmpacity');
+        const paramR20 = document.getElementById('paramR20');
+        const paramR90 = document.getElementById('paramR90');
+        const paramX = document.getElementById('paramX');
+        const btnReset = document.getElementById('btnReset');
 
-      const modalMedEdit = document.getElementById('modal-med-edit');
-      const selectFreqType = document.getElementById('select-med-freq-type');
-      const sectionWeekdays = document.getElementById('section-med-weekdays');
+        const valDeltaV = document.getElementById('valDeltaV');
+        const resDeltaVFormula = document.getElementById('resDeltaVFormula');
+        const cardDropRate = document.getElementById('cardDropRate');
+        const valDropRate = document.getElementById('valDropRate');
+        const badgeDropStatus = document.getElementById('badgeDropStatus');
+        const labelDropSubText = document.getElementById('labelDropSubText');
+        const valLossWatts = document.getElementById('valLossWatts');
+        const valLossFormula = document.getElementById('valLossFormula');
+        const valLossRate = document.getElementById('valLossRate');
+        const valTotalPowerHint = document.getElementById('valTotalPowerHint');
+        const panelRecommendation = document.getElementById('panelRecommendation');
+        const tableBodySpec = document.getElementById('tableBodySpec');
 
-      selectFreqType.onchange = () => {
-        if (selectFreqType.value === 'weekly_custom') {
-          sectionWeekdays.classList.remove('hidden');
-        } else {
-          sectionWeekdays.classList.add('hidden');
-        }
-      };
+        function calculateCore(wireSizeKey, sys, V, I, L) {
+            const spec = WIRE_SPECS[wireSizeKey];
+            if (!spec) return null;
 
-      const inputPhotoFile = document.getElementById('input-file-med-photo');
-      inputPhotoFile.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+            const r20 = spec.r20;
+            const r90 = spec.r90;
+            const L_km = L / 1000.0;
+            const zEff = r20;
 
-        try {
-          const compressed = await compressImageFile(file, 300, 300, 0.7);
-          setMedPhotoPreview(compressed);
-        } catch (err) {
-          alert('圖片讀取壓縮失敗，請重新嘗試選擇其他照片。');
-        }
-        inputPhotoFile.value = '';
-      };
+            let kDrop = 2.0;
+            let pLoss = 0.0;
+            let totalPower = 0.0;
+            let is1p3wPhase = false;
 
-      document.getElementById('btn-remove-med-photo').onclick = () => {
-        setMedPhotoPreview('');
-      };
-
-      document.getElementById('btn-open-create-med').onclick = () => openMedEditModal();
-      document.getElementById('btn-close-med-edit').onclick = () => modalMedEdit.classList.add('hidden');
-      document.getElementById('btn-cancel-med-edit').onclick = () => modalMedEdit.classList.add('hidden');
-
-      document.getElementById('form-med-edit').onsubmit = (e) => {
-        e.preventDefault();
-        const id = document.getElementById('input-med-id').value;
-        const name = document.getElementById('input-med-name').value.trim();
-        const dosage = document.getElementById('input-med-dosage').value.trim();
-        const freqType = selectFreqType.value;
-        const timing = document.getElementById('select-med-timing').value;
-        const notes = document.getElementById('input-med-notes').value.trim();
-        const photo = document.getElementById('input-med-photo').value || '';
-
-        if (!name) return;
-
-        const weekdays = freqType === 'weekly_custom' ? [...state.editingMedWeekdays] : [1,2,3,4,5,6,7];
-
-        if (id) {
-          const item = state.medications.find(m => m.id === id);
-          if (item) {
-            item.name = name;
-            item.dosage = dosage;
-            item.freqType = freqType;
-            item.weekdays = weekdays;
-            item.timing = timing;
-            item.notes = notes;
-            item.photo = photo;
-          }
-        } else {
-          state.medications.push({
-            id: 'med-' + Date.now(),
-            name,
-            dosage,
-            freqType,
-            weekdays,
-            timing,
-            notes,
-            photo
-          });
-        }
-
-        saveState();
-        modalMedEdit.classList.add('hidden');
-        renderMedManagerList();
-        
-        const curDate = document.getElementById('input-log-med-date').value || getStandardDateKey();
-        renderMedChecklist(curDate, null);
-        lucide.createIcons();
-      };
-
-      document.getElementById('btn-period-morning').onclick = () => setHealthPeriod('晨起');
-      document.getElementById('btn-period-evening').onclick = () => setHealthPeriod('晚間');
-
-      const modalHealth = document.getElementById('modal-health');
-      document.getElementById('btn-open-health-modal').onclick = () => openHealthModal();
-      document.getElementById('btn-health-quick-log-bp').onclick = () => openHealthModal();
-      document.getElementById('btn-close-health-modal').onclick = () => modalHealth.classList.add('hidden');
-      document.getElementById('btn-cancel-health').onclick = () => modalHealth.classList.add('hidden');
-
-      document.getElementById('form-health').onsubmit = (e) => {
-        e.preventDefault();
-        const id = document.getElementById('input-health-id').value;
-        const date = document.getElementById('input-health-date').value;
-        const period = document.getElementById('input-health-period').value;
-        const sys = parseInt(document.getElementById('input-health-sys').value, 10);
-        const dia = parseInt(document.getElementById('input-health-dia').value, 10);
-        const weightVal = document.getElementById('input-health-weight').value;
-        const pulseVal = document.getElementById('input-health-pulse').value;
-        const memo = document.getElementById('input-health-memo').value.trim();
-
-        const weight = weightVal ? parseFloat(weightVal) : null;
-        const pulse = pulseVal ? parseInt(pulseVal, 10) : null;
-
-        if (id) {
-          const item = state.healthLogs.find(l => l.id === id);
-          if (item) {
-            item.date = date;
-            item.period = period;
-            item.sys = sys;
-            item.dia = dia;
-            item.weight = weight;
-            item.pulse = pulse;
-            item.memo = memo;
-          }
-        } else {
-          state.healthLogs.push({
-            id: 'hl-' + Date.now(),
-            date,
-            period,
-            sys,
-            dia,
-            weight,
-            pulse,
-            memo
-          });
-        }
-
-        saveState();
-        modalHealth.classList.add('hidden');
-        renderApp();
-      };
-
-      document.getElementById('btn-grid-prev-period').onclick = () => {
-        state.gridOffsetDays += 14;
-        renderBulletGrid();
-        lucide.createIcons();
-      };
-
-      document.getElementById('btn-grid-next-period').onclick = () => {
-        if (state.gridOffsetDays >= 14) {
-          state.gridOffsetDays -= 14;
-        } else {
-          state.gridOffsetDays = 0;
-        }
-        renderBulletGrid();
-        lucide.createIcons();
-      };
-
-      document.getElementById('btn-grid-today').onclick = () => {
-        state.gridOffsetDays = 0;
-        renderBulletGrid();
-        lucide.createIcons();
-      };
-
-      const modalHabit = document.getElementById('modal-habit');
-      document.getElementById('btn-open-habit-modal').onclick = () => {
-        document.getElementById('modal-habit-title').innerText = '建立新習慣';
-        document.getElementById('form-habit').reset();
-        document.getElementById('input-habit-id').value = '';
-        populateHabitCategorySelect();
-        renderIconSelector('check');
-        modalHabit.classList.remove('hidden');
-        lucide.createIcons();
-      };
-      document.getElementById('btn-close-habit-modal').onclick = () => modalHabit.classList.add('hidden');
-      document.getElementById('btn-cancel-habit').onclick = () => modalHabit.classList.add('hidden');
-
-      const modalCatManager = document.getElementById('modal-category-manager');
-      document.getElementById('btn-open-category-modal').onclick = () => {
-        renderCategoryManagerList();
-        modalCatManager.classList.remove('hidden');
-        lucide.createIcons();
-      };
-      document.getElementById('btn-close-category-manager').onclick = () => modalCatManager.classList.add('hidden');
-
-      const btnQuickCat = document.getElementById('btn-trigger-quick-category');
-      btnQuickCat.addEventListener('click', (e) => {
-        e.preventDefault();
-        openCategoryEditModal();
-      });
-
-      const btnOpenCreateCat = document.getElementById('btn-open-create-category');
-      btnOpenCreateCat.addEventListener('click', (e) => {
-        e.preventDefault();
-        openCategoryEditModal();
-      });
-
-      const modalCatEdit = document.getElementById('modal-category-edit');
-      document.getElementById('btn-close-category-edit').onclick = () => modalCatEdit.classList.add('hidden');
-      document.getElementById('btn-cancel-category-edit').onclick = () => modalCatEdit.classList.add('hidden');
-
-      document.getElementById('form-category-edit').onsubmit = (e) => {
-        e.preventDefault();
-        const id = document.getElementById('input-category-id').value;
-        const name = document.getElementById('input-category-name').value.trim();
-        const color = document.getElementById('input-category-color').value;
-
-        if (!name) return;
-
-        let targetId = id;
-        if (id) {
-          const cat = state.categories.find(c => c.id === id);
-          if (cat) {
-            cat.name = name;
-            cat.color = color;
-          }
-        } else {
-          targetId = 'cat-' + Date.now();
-          state.categories.push({ id: targetId, name, color });
-        }
-
-        saveState();
-        modalCatEdit.classList.add('hidden');
-        populateHabitCategorySelect(targetId);
-        renderApp();
-      };
-
-      document.getElementById('form-habit').onsubmit = (e) => {
-        e.preventDefault();
-        const id = document.getElementById('input-habit-id').value;
-        const title = document.getElementById('input-habit-title').value.trim();
-        const desc = document.getElementById('input-habit-desc').value.trim();
-        const categoryId = document.getElementById('select-habit-category').value;
-        const icon = document.getElementById('input-habit-icon').value || 'check';
-
-        if (!title) return;
-
-        if (id) {
-          const habit = state.habits.find(h => h.id === id);
-          if (habit) {
-            habit.title = title;
-            habit.desc = desc;
-            habit.categoryId = categoryId;
-            habit.icon = icon;
-          }
-        } else {
-          state.habits.push({
-            id: 'h-' + Date.now(),
-            title,
-            desc,
-            categoryId,
-            icon,
-            createdAt: getStandardDateKey()
-          });
-        }
-
-        saveState();
-        modalHabit.classList.add('hidden');
-        renderApp();
-      };
-
-      const modalData = document.getElementById('modal-data');
-      document.getElementById('btn-open-data-modal').onclick = () => modalData.classList.remove('hidden');
-      document.getElementById('btn-close-data-modal').onclick = () => modalData.classList.add('hidden');
-
-      document.getElementById('btn-export-json').onclick = () => {
-        const exportObj = {
-          routine_version: '2.5',
-          export_date: new Date().toISOString(),
-          categories: state.categories,
-          habits: state.habits,
-          logs: state.logs,
-          healthLogs: state.healthLogs,
-          medications: state.medications,
-          medLogs: state.medLogs
-        };
-        const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `routine_backup_${getStandardDateKey()}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-      };
-
-      document.getElementById('input-import-json').onchange = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          try {
-            const data = JSON.parse(event.target.result);
-            if (data.habits && data.categories) {
-              state.categories = data.categories;
-              state.habits = data.habits;
-              state.logs = data.logs || {};
-              state.healthLogs = data.healthLogs || [];
-              state.medications = data.medications || INITIAL_MEDICATIONS;
-              state.medLogs = data.medLogs || [];
-              saveState();
-              renderApp();
-              alert('備份資料已成功匯入並同步至雲端！');
-              modalData.classList.add('hidden');
-            } else {
-              alert('無效的備份檔案格式。');
+            if (sys === '1p3w') {
+                if (V <= 150) {
+                    kDrop = 1.0;
+                    pLoss = 1.0 * Math.pow(I, 2) * (r90 * L_km);
+                    totalPower = V * I * PF_LINE_LOSS;
+                    is1p3wPhase = true;
+                } else {
+                    kDrop = 2.0;
+                    pLoss = 2.0 * Math.pow(I, 2) * (r90 * L_km);
+                    totalPower = V * I * PF_LINE_LOSS;
+                }
+            } else if (sys === '3p3w' || sys === '3p4w') {
+                kDrop = Math.sqrt(3);
+                pLoss = 3.0 * Math.pow(I, 2) * (r90 * L_km);
+                totalPower = Math.sqrt(3) * V * I * PF_LINE_LOSS;
             }
-          } catch (err) {
-            alert('檔案解析失敗，請確認是否為標準 JSON 檔案。');
-          }
-        };
-        reader.readAsText(file);
-      };
 
-      document.getElementById('btn-reset-demo').onclick = () => {
-        if (confirm('確定要載入預設範例資料嗎？這將會覆蓋現有紀錄並同步更新至雲端。')) {
-          state.categories = INITIAL_CATEGORIES;
-          state.habits = INITIAL_HABITS;
-          state.logs = {};
-          state.healthLogs = [
-            { id: 'hl-demo-1', date: getStandardDateKey(), period: '晨起', sys: 118, dia: 76, weight: 64.8, pulse: 68, memo: '晨起空腹測量，狀態平穩' }
-          ];
-          state.medications = INITIAL_MEDICATIONS;
-          state.medLogs = [];
-          saveState();
-          renderApp();
-          modalData.classList.add('hidden');
+            const deltaV = kDrop * I * L_km * zEff;
+            const dropRate = V > 0 ? (deltaV / V) * 100.0 : 0.0;
+            const lossRate = totalPower > 0 ? (pLoss / totalPower) * 100.0 : 0.0;
+
+            return {
+                wireSize: wireSizeKey,
+                ampacity: spec.ampacity,
+                kDrop,
+                zEff,
+                deltaV,
+                dropRate,
+                pLoss,
+                totalPower,
+                lossRate,
+                is1p3wPhase,
+                r20,
+                r90,
+                x: spec.x
+            };
         }
-      };
 
-      switchWorkspace('habit');
-      renderApp();
-    });
-  </script>
+        function updateAll(source) {
+            const rawV = inputVoltage.value.trim();
+            const rawI = inputCurrent.value.trim();
+            const rawVA = inputVA.value.trim();
+            const rawL = inputLength.value.trim();
+
+            const V = parseFloat(rawV) || 0;
+            let I = parseFloat(rawI) || 0;
+            let VA = parseFloat(rawVA) || 0;
+            const L = parseFloat(rawL) || 0;
+            const wireSizeKey = parseFloat(selectWireSize.value);
+
+            const isThreePhase = (currentSystem === '3p3w' || currentSystem === '3p4w');
+            
+            if (isThreePhase) {
+                vaCalcHint.textContent = 'I = VA / (√3 × V)';
+            } else {
+                vaCalcHint.textContent = 'I = VA / V';
+            }
+
+            if (source === 'va' || source === 'voltage' || source === 'system') {
+                if (V > 0 && rawVA !== '') {
+                    I = isThreePhase ? (VA / (Math.sqrt(3) * V)) : (VA / V);
+                    inputCurrent.value = round3(I);
+                } else if (rawVA === '' && source === 'voltage' && rawI !== '') {
+                    VA = isThreePhase ? (Math.sqrt(3) * V * I) : (V * I);
+                    inputVA.value = round3(VA);
+                }
+            } else if (source === 'current') {
+                if (V > 0 && rawI !== '') {
+                    VA = isThreePhase ? (Math.sqrt(3) * V * I) : (V * I);
+                    inputVA.value = round3(VA);
+                }
+            }
+
+            const reqDesignCurrent = I * CONTINUOUS_FACTOR;
+            if (I > 0) {
+                ampacityCheckHint.textContent = `需滿足連續載流: ${round3(reqDesignCurrent)} A (×1.25)`;
+            } else {
+                ampacityCheckHint.textContent = '連續安全電流: —';
+            }
+
+            if (currentSystem === '1p3w') {
+                if (V > 0) {
+                    if (V <= 150) {
+                        voltageModeBadge.textContent = '1φ3w 相負載 (K=1.0)';
+                        voltageModeBadge.className = 'text-[11px] px-2 py-0.5 rounded font-mono font-medium bg-dracula-cyan/10 text-dracula-cyan border border-dracula-cyan/30';
+                    } else {
+                        voltageModeBadge.textContent = '1φ3w 線間 (K=2.0)';
+                        voltageModeBadge.className = 'text-[11px] px-2 py-0.5 rounded font-mono font-medium bg-dracula-orange/10 text-dracula-orange border border-dracula-orange/30';
+                    }
+                } else {
+                    voltageModeBadge.textContent = '1φ3w 待輸入電壓';
+                    voltageModeBadge.className = 'text-[11px] px-2 py-0.5 rounded font-mono font-medium bg-dracula-bg text-dracula-comment border border-dracula-current';
+                }
+            } else if (currentSystem === '3p3w') {
+                voltageModeBadge.textContent = '3φ3w 線間 (K=√3)';
+                voltageModeBadge.className = 'text-[11px] px-2 py-0.5 rounded font-mono font-medium bg-dracula-purple/10 text-dracula-purple border border-dracula-purple/30';
+            } else if (currentSystem === '3p4w') {
+                voltageModeBadge.textContent = '3φ4w 線間 (K=√3)';
+                voltageModeBadge.className = 'text-[11px] px-2 py-0.5 rounded font-mono font-medium bg-dracula-pink/10 text-dracula-pink border border-dracula-pink/30';
+            }
+
+            const spec = WIRE_SPECS[wireSizeKey];
+            if (spec) {
+                paramAmpacity.textContent = `${spec.ampacity} A`;
+                paramR20.textContent = `${spec.r20} Ω/km`;
+                paramR90.textContent = `${spec.r90} Ω/km`;
+                paramX.textContent = `${spec.x} Ω/km`;
+            }
+
+            const hasCompleteInputs = (V > 0 && I > 0 && L > 0);
+            if (!hasCompleteInputs) {
+                valDeltaV.innerHTML = `— <span class="text-sm font-normal text-dracula-comment">V</span>`;
+                resDeltaVFormula.textContent = '請輸入電壓、長度與負載';
+
+                valDropRate.innerHTML = `— <span class="text-sm font-normal text-dracula-comment">%</span>`;
+                cardDropRate.className = 'bg-dracula-current/40 border border-dracula-current rounded-2xl p-5 relative overflow-hidden shadow-lg';
+                badgeDropStatus.textContent = '待計算';
+                badgeDropStatus.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-dracula-bg text-dracula-comment border border-dracula-current';
+                labelDropSubText.textContent = '壓降 ≤ 3% ｜ 線徑 ≥ 14mm² ｜ 表16-6 安全載流';
+
+                valLossWatts.innerHTML = `— <span class="text-sm font-normal text-dracula-comment">W</span>`;
+                valLossFormula.textContent = '待填寫參數';
+
+                valLossRate.innerHTML = `— <span class="text-sm font-normal text-dracula-comment">%</span>`;
+                valTotalPowerHint.textContent = '負載總功率: — kW';
+
+                panelRecommendation.className = 'rounded-2xl border border-dracula-current bg-dracula-current/20 p-5 shadow-xl transition-all';
+                panelRecommendation.innerHTML = `
+                    <div class="text-xs text-dracula-comment text-center py-2 font-mono">
+                        請於左側輸入「電壓、長度與負載 (或電流)」，系統將立即進行核算與合規判斷
+                    </div>
+                `;
+                return;
+            }
+
+            const res = calculateCore(wireSizeKey, currentSystem, V, I, L);
+            if (!res) return;
+
+            valDeltaV.innerHTML = `${round3(res.deltaV)} <span class="text-sm font-normal text-dracula-comment">V</span>`;
+            const kStr = res.kDrop === Math.sqrt(3) ? '√3' : res.kDrop.toFixed(1);
+            resDeltaVFormula.textContent = `K=${kStr} ｜ PF=1.0 ｜ Z_eff=r(20°C)=${res.zEff} Ω/km`;
+
+            valDropRate.innerHTML = `${round3(res.dropRate)} <span class="text-sm font-normal text-dracula-comment">%</span>`;
+
+            valLossWatts.innerHTML = `${round3(res.pLoss)} <span class="text-sm font-normal text-dracula-comment">W</span>`;
+            if (currentSystem === '1p3w' && res.is1p3wPhase) {
+                valLossFormula.textContent = 'P_loss = 1 × I² × R (90°C, 相負載)';
+            } else if (isThreePhase) {
+                valLossFormula.textContent = 'P_loss = 3 × I² × R (90°C, 三相)';
+            } else {
+                valLossFormula.textContent = 'P_loss = 2 × I² × R (90°C, 兩載流線)';
+            }
+
+            valLossRate.innerHTML = `${round3(res.lossRate)} <span class="text-sm font-normal text-dracula-comment">%</span>`;
+            valTotalPowerHint.textContent = `總功率 (PF=0.99): ${round3(res.totalPower / 1000)} kW`;
+
+            // 三重安全檢驗
+            const isDropQualified = res.dropRate <= MAX_DROP_LIMIT;
+            const isWireSizeQualified = wireSizeKey >= MIN_WIRE_LIMIT;
+            const isAmpacityQualified = res.ampacity >= reqDesignCurrent;
+            const isFullyQualified = isDropQualified && isWireSizeQualified && isAmpacityQualified;
+
+            if (isFullyQualified) {
+                cardDropRate.className = 'bg-dracula-current/40 border border-dracula-green/40 rounded-2xl p-5 relative overflow-hidden shadow-lg';
+                badgeDropStatus.textContent = '完全合規安全';
+                badgeDropStatus.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-dracula-green/20 text-dracula-green border border-dracula-green/30';
+                labelDropSubText.textContent = `壓降、線徑 (≥14mm²) 與載流容量 (${res.ampacity}A ≥ ${round3(reqDesignCurrent)}A) 均合規`;
+            } else if (!isAmpacityQualified) {
+                // 載流容量不足
+                cardDropRate.className = 'bg-dracula-current/40 border border-dracula-red/50 rounded-2xl p-5 relative overflow-hidden shadow-lg shadow-dracula-red/10';
+                badgeDropStatus.textContent = '載流容量不足 (過載危險)';
+                badgeDropStatus.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-dracula-red/20 text-dracula-red border border-dracula-red/30';
+                labelDropSubText.textContent = `表16-6容許載流 ${res.ampacity}A < 連續設計電流 ${round3(reqDesignCurrent)}A (有發熱風險)`;
+            } else if (!isWireSizeQualified) {
+                // 未達 14mm²
+                cardDropRate.className = 'bg-dracula-current/40 border border-dracula-red/50 rounded-2xl p-5 relative overflow-hidden shadow-lg shadow-dracula-red/10';
+                badgeDropStatus.textContent = '未達 14mm² (違規)';
+                badgeDropStatus.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-dracula-red/20 text-dracula-red border border-dracula-red/30';
+                labelDropSubText.textContent = '壓降與載流雖夠，但線徑違反第993條 (小於14mm²)';
+            } else {
+                // 壓降超標
+                cardDropRate.className = 'bg-dracula-current/40 border border-dracula-red/50 rounded-2xl p-5 relative overflow-hidden shadow-lg shadow-dracula-red/10';
+                badgeDropStatus.textContent = '壓降超標不合格';
+                badgeDropStatus.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-dracula-red/20 text-dracula-red border border-dracula-red/30';
+                labelDropSubText.textContent = '電壓降率超過容許上限 3.000%';
+            }
+
+            renderRecommendation(isFullyQualified, isDropQualified, isWireSizeQualified, isAmpacityQualified, reqDesignCurrent, wireSizeKey, res, V, I, L);
+        }
+
+        function renderRecommendation(isFullyQualified, isDropQualified, isWireSizeQualified, isAmpacityQualified, reqDesignCurrent, currentWireSize, currentRes, V, I, L) {
+            if (isFullyQualified) {
+                panelRecommendation.className = 'rounded-2xl border border-dracula-green/30 bg-dracula-green/10 p-5 shadow-xl';
+                panelRecommendation.innerHTML = `
+                    <div class="flex items-start gap-3">
+                        <div class="p-2 rounded-xl bg-dracula-green/20 text-dracula-green font-bold">✓</div>
+                        <div>
+                            <h3 class="text-sm font-semibold text-dracula-green">目前導線規格完全符合法規與安全規範</h3>
+                            <p class="text-xs text-dracula-comment mt-1 leading-relaxed">
+                                所選之 <strong class="text-dracula-fg">${currentWireSize} mm²</strong>：<br>
+                                1. 表 16-6 管內容許載流量（3條）為 <strong class="text-dracula-yellow">${currentRes.ampacity} A</strong>，高於連續運轉安全電流 <strong class="text-dracula-yellow">${round3(reqDesignCurrent)} A</strong>。<br>
+                                2. 電壓降率為 <strong class="text-dracula-green">${round3(currentRes.dropRate)}%</strong>（≤ 3.000%），符合「用戶用電設備裝置規則」第 9 條與第 993 條（≥ 14mm²）規範。
+                            </p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // 尋找同時滿足：1. 線徑 >= 14mm²  2. 載流 >= reqDesignCurrent  3. 壓降 <= 3% 的最小規格
+                const sortedSizes = Object.keys(WIRE_SPECS).map(Number).sort((a, b) => a - b);
+                let recommendedRes = null;
+
+                for (let size of sortedSizes) {
+                    if (size >= MIN_WIRE_LIMIT) {
+                        const testRes = calculateCore(size, currentSystem, V, I, L);
+                        if (testRes && testRes.dropRate <= MAX_DROP_LIMIT && testRes.ampacity >= reqDesignCurrent) {
+                            recommendedRes = testRes;
+                            break;
+                        }
+                    }
+                }
+
+                panelRecommendation.className = 'rounded-2xl border border-dracula-red/40 bg-dracula-red/15 p-5 shadow-xl space-y-4';
+
+                if (recommendedRes) {
+                    const savedWatts = Math.max(0, currentRes.pLoss - recommendedRes.pLoss);
+                    let warningTitle = '安全警示 ｜ 系統建議升級合規規格';
+                    let warningReason = '';
+
+                    if (!isAmpacityQualified) {
+                        warningTitle = '⚠️ 嚴重過載警示 ｜ 導線載流容量不足';
+                        warningReason = `現有 <span class="text-dracula-red font-mono font-bold">${currentWireSize} mm²</span> 依表 16-6 容許安全電流僅 <span class="text-dracula-red font-mono font-bold">${currentRes.ampacity} A</span>，無法承受連續安全電流 <span class="text-dracula-red font-mono font-bold">${round3(reqDesignCurrent)} A</span>（有發熱起火危險）。`;
+                    } else if (!isWireSizeQualified) {
+                        warningTitle = '法規違規警示 ｜ 未達法定 14mm² 低標';
+                        warningReason = `現有 <span class="text-dracula-red font-mono font-bold">${currentWireSize} mm²</span> 違反第 993 條「導線線徑不得小於 14mm²」之法定底線。`;
+                    } else {
+                        warningTitle = '壓降超標警示 ｜ 壓降率超過 3%';
+                        warningReason = `現有 <span class="text-dracula-red font-mono font-bold">${currentWireSize} mm²</span> 電壓降率為 <span class="text-dracula-red font-mono font-bold">${round3(currentRes.dropRate)}%</span>，超過容許上限 3.000%。`;
+                    }
+
+                    panelRecommendation.innerHTML = `
+                        <div class="flex items-start justify-between flex-wrap gap-2">
+                            <div class="flex items-center gap-2">
+                                <span class="p-1.5 rounded-lg bg-dracula-red/20 text-dracula-red font-bold text-sm">!</span>
+                                <h3 class="text-sm font-semibold text-dracula-fg">${warningTitle}</h3>
+                            </div>
+                            <button type="button" id="btnApplyRecommend" data-size="${recommendedRes.wireSize}" 
+                                class="px-3 py-1.5 rounded-xl bg-dracula-purple hover:bg-dracula-purple/90 text-dracula-bg font-bold text-xs shadow-lg shadow-dracula-purple/30 transition-colors">
+                                直接套用 ${recommendedRes.wireSize} mm²
+                            </button>
+                        </div>
+                        <p class="text-xs text-dracula-fg leading-relaxed">
+                            ${warningReason}<br>
+                            建議升級至 <span class="text-dracula-green font-mono font-bold">${recommendedRes.wireSize} mm²</span>：依表 16-6 容許電流提升至 <span class="text-dracula-yellow font-mono font-bold">${recommendedRes.ampacity} A</span>，壓降率降至 <span class="text-dracula-green font-mono font-bold">${round3(recommendedRes.dropRate)}%</span>，徹底符合載流與壓降標準。
+                        </p>
+                        <div class="grid grid-cols-3 gap-2 pt-2 border-t border-dracula-current text-center">
+                            <div class="bg-dracula-bg/80 p-2.5 rounded-xl">
+                                <div class="text-[10px] text-dracula-comment">升級後容許載流</div>
+                                <div class="text-xs sm:text-sm font-bold font-mono text-dracula-yellow">${recommendedRes.ampacity} A</div>
+                            </div>
+                            <div class="bg-dracula-bg/80 p-2.5 rounded-xl">
+                                <div class="text-[10px] text-dracula-comment">升級後壓降率</div>
+                                <div class="text-xs sm:text-sm font-bold font-mono text-dracula-green">${round3(recommendedRes.dropRate)} %</div>
+                            </div>
+                            <div class="bg-dracula-bg/80 p-2.5 rounded-xl">
+                                <div class="text-[10px] text-dracula-comment">線損功率改善</div>
+                                <div class="text-xs sm:text-sm font-bold font-mono text-dracula-cyan">-${round3(savedWatts)} W</div>
+                            </div>
+                        </div>
+                    `;
+
+                    const btnApply = document.getElementById('btnApplyRecommend');
+                    if (btnApply) {
+                        btnApply.addEventListener('click', function() {
+                            selectWireSize.value = this.getAttribute('data-size');
+                            updateAll('wire');
+                        });
+                    }
+                } else {
+                    panelRecommendation.innerHTML = `
+                        <div class="flex items-start gap-2">
+                            <span class="p-1.5 rounded-lg bg-dracula-red/20 text-dracula-red font-bold text-sm">✕</span>
+                            <div>
+                                <h3 class="text-sm font-semibold text-dracula-fg">超出對照表最大線徑規格 (> 100 mm² 或電流過大)</h3>
+                                <p class="text-xs text-dracula-comment mt-1">
+                                    即使用最大之 100 mm² 導線（容許載流 242A），在目前條件下依然無法同時滿足安全載流或 3% 壓降限制。建議考慮採用多組電纜並聯敷設。
+                                </p>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        function renderReferenceTable() {
+            if (!tableBodySpec) return;
+            let rowsHtml = '';
+            for (let [size, data] of Object.entries(WIRE_SPECS)) {
+                const isUnder14 = Number(size) < 14;
+                const note = isUnder14 ? '<span class="text-xs text-dracula-red ml-1">(&lt;14mm² 違規)</span>' : '';
+                rowsHtml += `
+                    <tr class="hover:bg-dracula-current/50 transition-colors">
+                        <td class="py-2.5 px-4 font-bold text-dracula-fg">${size} mm² ${note}</td>
+                        <td class="py-2.5 px-4 text-dracula-yellow font-mono font-semibold">${data.ampacity} A</td>
+                        <td class="py-2.5 px-4 text-dracula-cyan font-mono">${data.r20}</td>
+                        <td class="py-2.5 px-4 text-dracula-orange font-mono">${data.r90}</td>
+                        <td class="py-2.5 px-4 text-dracula-green font-mono">${data.x}</td>
+                        <td class="py-2.5 px-4 text-dracula-comment font-mono">${data.od}</td>
+                    </tr>
+                `;
+            }
+            tableBodySpec.innerHTML = rowsHtml;
+        }
+
+        function initEvents() {
+            const sysBtns = document.querySelectorAll('.sys-btn');
+            sysBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    sysBtns.forEach(b => {
+                        b.className = 'sys-btn py-2.5 px-3 rounded-xl border text-sm font-semibold transition-all border-dracula-current bg-dracula-bg/80 text-dracula-comment hover:border-dracula-purple/50';
+                    });
+                    this.className = 'sys-btn py-2.5 px-3 rounded-xl border text-sm font-semibold transition-all border-dracula-purple bg-dracula-purple/20 text-dracula-purple shadow-sm';
+                    currentSystem = this.getAttribute('data-sys');
+                    updateAll('system');
+                });
+            });
+
+            inputVA.addEventListener('input', () => updateAll('va'));
+            inputVoltage.addEventListener('input', () => updateAll('voltage'));
+            inputCurrent.addEventListener('input', () => updateAll('current'));
+            inputLength.addEventListener('input', () => updateAll('length'));
+            selectWireSize.addEventListener('change', () => updateAll('wire'));
+
+            if (btnReset) {
+                btnReset.addEventListener('click', () => {
+                    inputVA.value = '';
+                    inputVoltage.value = '';
+                    inputCurrent.value = '';
+                    inputLength.value = '';
+                    selectWireSize.value = '14';
+
+                    sysBtns.forEach(b => {
+                        if (b.getAttribute('data-sys') === '1p3w') {
+                            b.className = 'sys-btn py-2.5 px-3 rounded-xl border text-sm font-semibold transition-all border-dracula-purple bg-dracula-purple/20 text-dracula-purple shadow-sm';
+                        } else {
+                            b.className = 'sys-btn py-2.5 px-3 rounded-xl border text-sm font-semibold transition-all border-dracula-current bg-dracula-bg/80 text-dracula-comment hover:border-dracula-purple/50';
+                        }
+                    });
+                    currentSystem = '1p3w';
+                    updateAll('reset');
+                });
+            }
+
+            const btnToggleTable = document.getElementById('btnToggleTable');
+            const containerTable = document.getElementById('containerTable');
+            const iconTableChevron = document.getElementById('iconTableChevron');
+
+            if (btnToggleTable && containerTable && iconTableChevron) {
+                btnToggleTable.addEventListener('click', () => {
+                    const isHidden = containerTable.classList.contains('hidden');
+                    if (isHidden) {
+                        containerTable.classList.remove('hidden');
+                        iconTableChevron.textContent = '▲';
+                    } else {
+                        containerTable.classList.add('hidden');
+                        iconTableChevron.textContent = '▼';
+                    }
+                });
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            renderReferenceTable();
+            initEvents();
+            updateAll('init');
+        });
+    </script>
 </body>
 </html>
